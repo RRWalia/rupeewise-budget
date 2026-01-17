@@ -5,11 +5,26 @@ import { SavingsTrendCard } from '@/components/SavingsTrendCard';
 import { AIInsightsCard } from '@/components/AIInsightsCard';
 import { RecentTransactions } from '@/components/RecentTransactions';
 import { AddTransactionDialog } from '@/components/AddTransactionDialog';
-import { calculateTotals, mockTransactions, monthlyBudget } from '@/lib/mockData';
+import { useTransactions } from '@/hooks/useTransactions';
+import { useMemo } from 'react';
 
 const Index = () => {
-  const { income, expenses } = calculateTotals(mockTransactions);
-  const budgetUsedPercent = (expenses / monthlyBudget) * 100;
+  const { transactions, loading, addTransaction } = useTransactions();
+
+  const { income, expenses, monthlyBudget, budgetUsedPercent } = useMemo(() => {
+    const income = transactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+    
+    const expenses = transactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+    
+    const monthlyBudget = 60000; // Default budget
+    const budgetUsedPercent = monthlyBudget > 0 ? (expenses / monthlyBudget) * 100 : 0;
+    
+    return { income, expenses, monthlyBudget, budgetUsedPercent };
+  }, [transactions]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -55,19 +70,19 @@ const Index = () => {
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Left Column */}
           <div className="space-y-6">
-            <SpendingPieChart />
-            <RecentTransactions />
+            <SpendingPieChart transactions={transactions} />
+            <RecentTransactions transactions={transactions} loading={loading} />
           </div>
 
           {/* Right Column */}
           <div className="space-y-6">
-            <SavingsTrendCard />
-            <AIInsightsCard />
+            <SavingsTrendCard transactions={transactions} />
+            <AIInsightsCard transactions={transactions} />
           </div>
         </div>
       </main>
 
-      <AddTransactionDialog />
+      <AddTransactionDialog onAdd={addTransaction} />
     </div>
   );
 };

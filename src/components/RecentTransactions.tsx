@@ -1,12 +1,16 @@
 import { motion } from 'framer-motion';
 import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
-import { mockTransactions, CATEGORY_ICONS, CATEGORY_COLORS, type Transaction } from '@/lib/mockData';
+import { CATEGORY_ICONS, CATEGORY_COLORS, type Category } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
+import type { Transaction } from '@/hooks/useTransactions';
 
-export function RecentTransactions() {
-  const recentTransactions = [...mockTransactions]
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 5);
+interface RecentTransactionsProps {
+  transactions: Transaction[];
+  loading?: boolean;
+}
+
+export function RecentTransactions({ transactions, loading }: RecentTransactionsProps) {
+  const recentTransactions = transactions.slice(0, 5);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -24,6 +28,24 @@ export function RecentTransactions() {
     });
   };
 
+  if (loading) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.6, duration: 0.4 }}
+        className="overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-card"
+      >
+        <h3 className="mb-4 font-display text-lg font-semibold text-card-foreground">
+          Recent Transactions
+        </h3>
+        <div className="flex h-32 items-center justify-center text-muted-foreground">
+          Loading...
+        </div>
+      </motion.div>
+    );
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -40,50 +62,56 @@ export function RecentTransactions() {
         </button>
       </div>
 
-      <div className="space-y-3">
-        {recentTransactions.map((transaction, index) => (
-          <motion.div
-            key={transaction.id}
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.7 + index * 0.05 }}
-            className="flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-secondary/50"
-          >
-            <div 
-              className="flex h-10 w-10 items-center justify-center rounded-xl text-lg"
-              style={{ backgroundColor: `${CATEGORY_COLORS[transaction.category]}20` }}
+      {recentTransactions.length === 0 ? (
+        <div className="flex h-32 items-center justify-center text-muted-foreground">
+          No transactions yet. Add your first one!
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {recentTransactions.map((transaction, index) => (
+            <motion.div
+              key={transaction.id}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.7 + index * 0.05 }}
+              className="flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-secondary/50"
             >
-              {CATEGORY_ICONS[transaction.category]}
-            </div>
-            
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-card-foreground">
-                {transaction.note || transaction.category}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {formatDate(transaction.date)} • {transaction.paymentMode}
-              </p>
-            </div>
+              <div 
+                className="flex h-10 w-10 items-center justify-center rounded-xl text-lg"
+                style={{ backgroundColor: `${CATEGORY_COLORS[transaction.category as Category] || 'hsl(220, 15%, 55%)'}20` }}
+              >
+                {CATEGORY_ICONS[transaction.category as Category] || '📦'}
+              </div>
+              
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-card-foreground">
+                  {transaction.note || transaction.category}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {formatDate(transaction.date)} • {transaction.payment_mode}
+                </p>
+              </div>
 
-            <div className="text-right">
-              <p className={cn(
-                'flex items-center gap-1 text-sm font-semibold',
-                transaction.type === 'income' ? 'text-income' : 'text-expense'
-              )}>
-                {transaction.type === 'income' ? (
-                  <ArrowDownRight className="h-3.5 w-3.5" />
-                ) : (
-                  <ArrowUpRight className="h-3.5 w-3.5" />
-                )}
-                {formatCurrency(transaction.amount)}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {transaction.category}
-              </p>
-            </div>
-          </motion.div>
-        ))}
-      </div>
+              <div className="text-right">
+                <p className={cn(
+                  'flex items-center gap-1 text-sm font-semibold',
+                  transaction.type === 'income' ? 'text-income' : 'text-expense'
+                )}>
+                  {transaction.type === 'income' ? (
+                    <ArrowDownRight className="h-3.5 w-3.5" />
+                  ) : (
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                  )}
+                  {formatCurrency(Number(transaction.amount))}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {transaction.category}
+                </p>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      )}
     </motion.div>
   );
 }
