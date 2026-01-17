@@ -1,17 +1,28 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, X, IndianRupee, Calendar, CreditCard, MessageSquare } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Plus, IndianRupee, Calendar, MessageSquare } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, CATEGORY_ICONS, type Category } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
-export function AddTransactionDialog() {
+interface AddTransactionDialogProps {
+  onAdd: (transaction: {
+    amount: number;
+    date: string;
+    category: string;
+    payment_mode: string;
+    note?: string;
+    type: 'income' | 'expense';
+  }) => Promise<{ success: boolean }>;
+}
+
+export function AddTransactionDialog({ onAdd }: AddTransactionDialogProps) {
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<'expense' | 'income'>('expense');
   const [amount, setAmount] = useState('');
@@ -19,11 +30,12 @@ export function AddTransactionDialog() {
   const [paymentMode, setPaymentMode] = useState<'UPI' | 'Card' | 'Cash'>('UPI');
   const [note, setNote] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
   const categories = type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!amount || !category) {
@@ -35,16 +47,30 @@ export function AddTransactionDialog() {
       return;
     }
 
-    toast({
-      title: 'Transaction added',
-      description: `${type === 'expense' ? 'Expense' : 'Income'} of ₹${amount} recorded`,
+    setLoading(true);
+    
+    const result = await onAdd({
+      amount: parseFloat(amount),
+      date,
+      category,
+      payment_mode: paymentMode,
+      note: note || undefined,
+      type,
     });
 
-    // Reset form
-    setAmount('');
-    setCategory('');
-    setNote('');
-    setOpen(false);
+    setLoading(false);
+
+    if (result.success) {
+      toast({
+        title: 'Transaction added',
+        description: `${type === 'expense' ? 'Expense' : 'Income'} of ₹${amount} recorded`,
+      });
+      // Reset form
+      setAmount('');
+      setCategory('');
+      setNote('');
+      setOpen(false);
+    }
   };
 
   return (
@@ -163,8 +189,8 @@ export function AddTransactionDialog() {
             </div>
           </div>
 
-          <Button type="submit" className="w-full" size="lg">
-            Add {type === 'expense' ? 'Expense' : 'Income'}
+          <Button type="submit" className="w-full" size="lg" disabled={loading}>
+            {loading ? 'Adding...' : `Add ${type === 'expense' ? 'Expense' : 'Income'}`}
           </Button>
         </form>
       </DialogContent>

@@ -1,39 +1,22 @@
+import { useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Lightbulb, AlertCircle, TrendingDown, Zap } from 'lucide-react';
+import { Lightbulb, AlertCircle, TrendingDown, Zap, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAIInsights, type AIInsight } from '@/hooks/useAIInsights';
+import type { Transaction } from '@/hooks/useTransactions';
 
-interface Insight {
-  id: string;
-  type: 'tip' | 'warning' | 'suggestion';
-  title: string;
-  description: string;
-  savings?: number;
+interface AIInsightsCardProps {
+  transactions: Transaction[];
 }
 
-const mockInsights: Insight[] = [
-  {
-    id: '1',
-    type: 'warning',
-    title: 'Entertainment spending high',
-    description: 'You\'ve spent ₹3,000 on entertainment. This is 80% of your monthly limit.',
-  },
-  {
-    id: '2',
-    type: 'suggestion',
-    title: 'Reduce food delivery',
-    description: 'Limiting food delivery to ₹2,000 could increase savings by ≈₹800 this month.',
-    savings: 800,
-  },
-  {
-    id: '3',
-    type: 'tip',
-    title: 'Great job on groceries!',
-    description: 'You\'re spending 15% less on groceries compared to last month.',
-  },
-];
+export function AIInsightsCard({ transactions }: AIInsightsCardProps) {
+  const { insights, loading, fetchInsights } = useAIInsights();
 
-export function AIInsightsCard() {
-  const getIcon = (type: Insight['type']) => {
+  useEffect(() => {
+    fetchInsights(transactions);
+  }, [transactions]);
+
+  const getIcon = (type: AIInsight['type']) => {
     switch (type) {
       case 'warning':
         return AlertCircle;
@@ -44,7 +27,7 @@ export function AIInsightsCard() {
     }
   };
 
-  const getStyles = (type: Insight['type']) => {
+  const getStyles = (type: AIInsight['type']) => {
     switch (type) {
       case 'warning':
         return {
@@ -86,44 +69,51 @@ export function AIInsightsCard() {
         </div>
       </div>
 
-      <div className="space-y-3">
-        {mockInsights.map((insight, index) => {
-          const Icon = getIcon(insight.type);
-          const styles = getStyles(insight.type);
-          
-          return (
-            <motion.div
-              key={insight.id}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.6 + index * 0.1 }}
-              className={cn(
-                'flex gap-3 rounded-xl border p-3',
-                styles.border,
-                styles.bg
-              )}
-            >
-              <div className={cn('mt-0.5 shrink-0', styles.text)}>
-                <Icon className="h-4 w-4" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className={cn('text-sm font-medium', styles.text)}>
-                  {insight.title}
-                </p>
-                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                  {insight.description}
-                </p>
-                {insight.savings && (
-                  <p className="mt-1 flex items-center gap-1 text-xs font-medium text-income">
-                    <TrendingDown className="h-3 w-3" />
-                    Save ₹{insight.savings}/month
-                  </p>
+      {loading ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <span className="ml-2 text-sm text-muted-foreground">Analyzing your spending...</span>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {insights.map((insight, index) => {
+            const Icon = getIcon(insight.type);
+            const styles = getStyles(insight.type);
+            
+            return (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.1 + index * 0.1 }}
+                className={cn(
+                  'flex gap-3 rounded-xl border p-3',
+                  styles.border,
+                  styles.bg
                 )}
-              </div>
-            </motion.div>
-          );
-        })}
-      </div>
+              >
+                <div className={cn('mt-0.5 shrink-0', styles.text)}>
+                  <Icon className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className={cn('text-sm font-medium', styles.text)}>
+                    {insight.title}
+                  </p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                    {insight.description}
+                  </p>
+                  {insight.savings && (
+                    <p className="mt-1 flex items-center gap-1 text-xs font-medium text-income">
+                      <TrendingDown className="h-3 w-3" />
+                      Save ₹{insight.savings.toLocaleString('en-IN')}/month
+                    </p>
+                  )}
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
     </motion.div>
   );
 }

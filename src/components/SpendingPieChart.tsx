@@ -1,11 +1,34 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { calculateCategorySpending, mockTransactions, CATEGORY_ICONS } from '@/lib/mockData';
+import { CATEGORY_COLORS, CATEGORY_ICONS, type Category } from '@/lib/mockData';
+import type { Transaction } from '@/hooks/useTransactions';
 
-export function SpendingPieChart() {
+interface SpendingPieChartProps {
+  transactions: Transaction[];
+}
+
+export function SpendingPieChart({ transactions }: SpendingPieChartProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
-  const categoryData = calculateCategorySpending(mockTransactions);
+
+  const categoryData = useMemo(() => {
+    const expenseTransactions = transactions.filter(t => t.type === 'expense');
+    const categoryTotals: Record<string, number> = {};
+    
+    expenseTransactions.forEach(t => {
+      categoryTotals[t.category] = (categoryTotals[t.category] || 0) + Number(t.amount);
+    });
+    
+    const total = Object.values(categoryTotals).reduce((sum, val) => sum + val, 0);
+    
+    return Object.entries(categoryTotals).map(([category, amount]) => ({
+      category: category as Category,
+      amount,
+      percentage: total > 0 ? (amount / total) * 100 : 0,
+      color: CATEGORY_COLORS[category as Category] || 'hsl(220, 15%, 55%)',
+      icon: CATEGORY_ICONS[category as Category] || '📦',
+    }));
+  }, [transactions]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -32,6 +55,24 @@ export function SpendingPieChart() {
     }
     return null;
   };
+
+  if (categoryData.length === 0) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3, duration: 0.4 }}
+        className="overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-card"
+      >
+        <h3 className="mb-4 font-display text-lg font-semibold text-card-foreground">
+          Spending by Category
+        </h3>
+        <div className="flex h-[220px] items-center justify-center text-muted-foreground">
+          No expenses recorded yet
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div
