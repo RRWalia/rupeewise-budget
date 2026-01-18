@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Plus, IndianRupee, Calendar, MessageSquare } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { IndianRupee, Calendar, MessageSquare } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,6 +11,8 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
 interface AddTransactionDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   onAdd: (transaction: {
     amount: number;
     date: string;
@@ -22,8 +23,7 @@ interface AddTransactionDialogProps {
   }) => Promise<{ success: boolean }>;
 }
 
-export function AddTransactionDialog({ onAdd }: AddTransactionDialogProps) {
-  const [open, setOpen] = useState(false);
+export function AddTransactionDialog({ open, onOpenChange, onAdd }: AddTransactionDialogProps) {
   const [type, setType] = useState<'expense' | 'income'>('expense');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState<Category | ''>('');
@@ -69,21 +69,12 @@ export function AddTransactionDialog({ onAdd }: AddTransactionDialogProps) {
       setAmount('');
       setCategory('');
       setNote('');
-      setOpen(false);
+      onOpenChange(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-shadow hover:shadow-xl"
-        >
-          <Plus className="h-6 w-6" />
-        </motion.button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle className="font-display text-xl">Add Transaction</DialogTitle>

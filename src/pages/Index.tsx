@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Header } from '@/components/Header';
 import { SummaryCard } from '@/components/SummaryCard';
 import { SpendingPieChart } from '@/components/SpendingPieChart';
@@ -5,11 +6,13 @@ import { SavingsTrendCard } from '@/components/SavingsTrendCard';
 import { AIInsightsCard } from '@/components/AIInsightsCard';
 import { RecentTransactions } from '@/components/RecentTransactions';
 import { AddTransactionDialog } from '@/components/AddTransactionDialog';
+import { BottomNav } from '@/components/BottomNav';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useMemo } from 'react';
 
 const Index = () => {
   const { transactions, loading, addTransaction } = useTransactions();
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const { income, expenses, monthlyBudget, budgetUsedPercent } = useMemo(() => {
     const income = transactions
@@ -27,7 +30,7 @@ const Index = () => {
   }, [transactions]);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-24">
       <Header />
       
       <main className="container py-6">
@@ -82,7 +85,12 @@ const Index = () => {
         </div>
       </main>
 
-      <AddTransactionDialog onAdd={addTransaction} />
+      <AddTransactionDialog 
+        open={dialogOpen} 
+        onOpenChange={setDialogOpen} 
+        onAdd={addTransaction} 
+      />
+      <BottomNav onAddClick={() => setDialogOpen(true)} />
     </div>
   );
 };
