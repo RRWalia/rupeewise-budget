@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Header } from '@/components/Header';
 import { SummaryCard } from '@/components/SummaryCard';
 import { SpendingPieChart } from '@/components/SpendingPieChart';
@@ -8,11 +8,16 @@ import { RecentTransactions } from '@/components/RecentTransactions';
 import { AddTransactionDialog } from '@/components/AddTransactionDialog';
 import { BottomNav } from '@/components/BottomNav';
 import { useTransactions } from '@/hooks/useTransactions';
-import { useMemo } from 'react';
 
 const Index = () => {
   const { transactions, loading, addTransaction } = useTransactions();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [lastTransactionType, setLastTransactionType] = useState<'income' | 'expense'>('expense');
+
+  const currentMonth = new Date().toLocaleDateString('en-IN', { 
+    month: 'long', 
+    year: 'numeric' 
+  });
 
   const { income, expenses, monthlyBudget, budgetUsedPercent } = useMemo(() => {
     const income = transactions
@@ -29,6 +34,14 @@ const Index = () => {
     return { income, expenses, monthlyBudget, budgetUsedPercent };
   }, [transactions]);
 
+  const handleAddTransaction = async (transaction: Parameters<typeof addTransaction>[0]) => {
+    const result = await addTransaction(transaction);
+    if (result.success) {
+      setLastTransactionType(transaction.type);
+    }
+    return result;
+  };
+
   return (
     <div className="min-h-screen bg-background pb-24">
       <Header />
@@ -39,30 +52,33 @@ const Index = () => {
           <h2 className="font-display text-2xl font-bold text-foreground">
             Good afternoon! 👋
           </h2>
-          <p className="text-muted-foreground">
-            Here's your financial overview for January 2025
+          <p className="text-sm text-muted-foreground mt-1">
+            Track UPI, cards, wallets & cash in one view—with AI tips to save more.
           </p>
         </div>
 
         {/* Summary Cards */}
         <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <SummaryCard
-            title="Income"
+            title="This month's Income"
             amount={income}
+            subtitle={currentMonth}
             type="income"
             trend="up"
             delay={0}
           />
           <SummaryCard
-            title="Expenses"
+            title="This month's Expenses"
             amount={expenses}
+            subtitle={currentMonth}
             type="expense"
             trend="down"
             delay={0.1}
           />
           <SummaryCard
-            title="Budget for the month"
+            title="Budget used this month"
             amount={monthlyBudget}
+            subtitle={currentMonth}
             type="budget"
             budgetUsed={budgetUsedPercent}
             delay={0.2}
@@ -88,7 +104,8 @@ const Index = () => {
       <AddTransactionDialog 
         open={dialogOpen} 
         onOpenChange={setDialogOpen} 
-        onAdd={addTransaction} 
+        onAdd={handleAddTransaction}
+        defaultType={lastTransactionType}
       />
       <BottomNav onAddClick={() => setDialogOpen(true)} />
     </div>

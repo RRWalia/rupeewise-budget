@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Lightbulb, AlertCircle, TrendingDown, Zap, Loader2 } from 'lucide-react';
+import { Lightbulb, AlertCircle, TrendingDown, Zap, Loader2, Info, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAIInsights, type AIInsight } from '@/hooks/useAIInsights';
 import type { Transaction } from '@/hooks/useTransactions';
@@ -57,16 +57,32 @@ export function AIInsightsCard({ transactions }: AIInsightsCardProps) {
       transition={{ delay: 0.5, duration: 0.4 }}
       className="overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-card"
     >
-      <div className="mb-4 flex items-center gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-          <Lightbulb className="h-4 w-4 text-primary" />
+      {/* Header with Beta Label */}
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+            <Lightbulb className="h-4 w-4 text-primary" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-display text-lg font-semibold text-card-foreground">
+                AI Insights
+              </h3>
+              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                beta
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground">Weekly spending analysis</p>
+          </div>
         </div>
-        <div>
-          <h3 className="font-display text-lg font-semibold text-card-foreground">
-            AI Insights
-          </h3>
-          <p className="text-xs text-muted-foreground">Weekly summary</p>
-        </div>
+      </div>
+
+      {/* Disclaimer */}
+      <div className="mb-4 flex items-start gap-2 rounded-lg bg-muted/50 px-3 py-2">
+        <Info className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" />
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          Suggestions may not be perfect—always review before acting.
+        </p>
       </div>
 
       {loading ? (
@@ -76,7 +92,7 @@ export function AIInsightsCard({ transactions }: AIInsightsCardProps) {
         </div>
       ) : (
         <div className="space-y-3">
-          {insights.map((insight, index) => {
+          {insights.slice(0, 3).map((insight, index) => {
             const Icon = getIcon(insight.type);
             const styles = getStyles(insight.type);
             
@@ -105,7 +121,7 @@ export function AIInsightsCard({ transactions }: AIInsightsCardProps) {
                   {insight.savings && (
                     <p className="mt-1 flex items-center gap-1 text-xs font-medium text-income">
                       <TrendingDown className="h-3 w-3" />
-                      Save ₹{insight.savings.toLocaleString('en-IN')}/month
+                      Could save ₹{insight.savings.toLocaleString('en-IN')}/month
                     </p>
                   )}
                 </div>
@@ -113,6 +129,14 @@ export function AIInsightsCard({ transactions }: AIInsightsCardProps) {
             );
           })}
         </div>
+      )}
+
+      {/* Actionable CTA */}
+      {!loading && insights.length > 0 && (
+        <button className="mt-4 flex w-full items-center justify-center gap-1 rounded-lg bg-primary/5 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/10">
+          View tips for saving this week
+          <ChevronRight className="h-4 w-4" />
+        </button>
       )}
     </motion.div>
   );

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
-import { TrendingUp, AlertTriangle, Sparkles } from 'lucide-react';
+import { TrendingUp, AlertTriangle, Sparkles, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Transaction } from '@/hooks/useTransactions';
 
@@ -176,7 +176,15 @@ export function SavingsTrendCard({ transactions }: SavingsTrendCardProps) {
             </div>
           )}
 
-          <div className="mt-4 flex items-start gap-2 rounded-lg bg-primary/5 p-3">
+          {/* Projection Disclaimer */}
+          <div className="mt-2 flex items-start gap-1.5 rounded bg-muted/30 px-2 py-1.5">
+            <Info className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" />
+            <p className="text-[10px] leading-relaxed text-muted-foreground">
+              Projection based on last 4 weeks' average spending
+            </p>
+          </div>
+
+          <div className="mt-3 flex items-start gap-2 rounded-lg bg-primary/5 p-3">
             <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
             <p className="text-xs leading-relaxed text-muted-foreground">
               {transactions.length === 0 ? (

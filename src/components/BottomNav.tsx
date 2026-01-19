@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Home, Target, Plus } from 'lucide-react';
+import { Home, PieChart, Plus } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
@@ -13,7 +13,7 @@ export function BottomNav({ onAddClick }: BottomNavProps) {
 
   const navItems = [
     { path: '/', icon: Home, label: 'Home' },
-    { path: '/budget', icon: Target, label: 'Budget' },
+    { path: '/budget', icon: PieChart, label: 'Budget' },
   ];
 
   return (
@@ -21,10 +21,10 @@ export function BottomNav({ onAddClick }: BottomNavProps) {
       <div className="mx-auto max-w-lg">
         <div className="relative flex items-end justify-center px-6 pb-4">
           {/* Background bar */}
-          <div className="absolute bottom-0 left-4 right-4 h-16 rounded-t-2xl bg-card shadow-lg border border-b-0 border-border" />
+          <div className="absolute bottom-0 left-4 right-4 h-[72px] rounded-t-3xl bg-card shadow-lg border border-b-0 border-border" />
           
           {/* Nav items container */}
-          <div className="relative flex w-full items-center justify-between px-4">
+          <div className="relative flex w-full items-center justify-between px-6">
             {/* Left nav item */}
             <NavItem
               {...navItems[0]}
@@ -32,14 +32,14 @@ export function BottomNav({ onAddClick }: BottomNavProps) {
               onClick={() => navigate(navItems[0].path)}
             />
 
-            {/* Center FAB */}
+            {/* Center FAB - Larger and more prominent */}
             <motion.button
-              whileHover={{ scale: 1.05 }}
+              whileHover={{ scale: 1.08 }}
               whileTap={{ scale: 0.95 }}
               onClick={onAddClick}
-              className="relative -top-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-shadow hover:shadow-xl"
+              className="relative -top-5 flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl ring-4 ring-background transition-shadow hover:shadow-2xl"
             >
-              <Plus className="h-6 w-6" />
+              <Plus className="h-7 w-7" strokeWidth={2.5} />
             </motion.button>
 
             {/* Right nav item */}
@@ -67,16 +67,16 @@ function NavItem({ icon: Icon, label, isActive, onClick }: NavItemProps) {
     <button
       onClick={onClick}
       className={cn(
-        'flex flex-col items-center gap-1 py-2 px-6 transition-colors',
+        'flex flex-col items-center gap-1 py-3 px-8 transition-colors relative',
         isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
       )}
     >
-      <Icon className="h-5 w-5" />
-      <span className="text-xs font-medium">{label}</span>
+      <Icon className={cn('h-6 w-6', isActive && 'stroke-[2.5]')} />
+      <span className={cn('text-xs', isActive ? 'font-semibold' : 'font-medium')}>{label}</span>
       {isActive && (
         <motion.div
           layoutId="navIndicator"
-          className="absolute -bottom-1 h-0.5 w-8 rounded-full bg-primary"
+          className="absolute -bottom-0.5 h-1 w-10 rounded-full bg-primary"
         />
       )}
     </button>

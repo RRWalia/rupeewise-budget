@@ -2,6 +2,11 @@ import { Bell, User } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export function Header() {
+  const currentMonth = new Date().toLocaleDateString('en-IN', { 
+    month: 'long', 
+    year: 'numeric' 
+  });
+
   return (
     <motion.header 
       initial={{ opacity: 0, y: -20 }}
@@ -13,9 +18,14 @@ export function Header() {
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary">
             <span className="text-lg font-bold text-primary-foreground">₹</span>
           </div>
-          <h1 className="font-display text-xl font-bold tracking-tight text-foreground">
-            RupeeWise
-          </h1>
+          <div>
+            <h1 className="font-display text-xl font-bold tracking-tight text-foreground">
+              RupeeWise
+            </h1>
+            <p className="text-[10px] text-muted-foreground leading-none">
+              {currentMonth}
+            </p>
+          </div>
         </div>
         
         <div className="flex items-center gap-2">

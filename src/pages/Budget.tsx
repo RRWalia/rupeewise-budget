@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { IndianRupee, Wallet, PiggyBank, Target, Save } from 'lucide-react';
+import { IndianRupee, Wallet, PiggyBank, Target, Save, LayoutGrid } from 'lucide-react';
 import { Header } from '@/components/Header';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -12,11 +12,13 @@ import { EXPENSE_CATEGORIES, CATEGORY_ICONS, type Category } from '@/lib/mockDat
 import { useTransactions } from '@/hooks/useTransactions';
 import { AddTransactionDialog } from '@/components/AddTransactionDialog';
 import { BottomNav } from '@/components/BottomNav';
+import { cn } from '@/lib/utils';
 
 const Budget = () => {
   const { toast } = useToast();
   const { transactions, addTransaction } = useTransactions();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [lastTransactionType, setLastTransactionType] = useState<'income' | 'expense'>('expense');
   
   // Budget state - in production, this would come from the database
   const [monthlyIncome, setMonthlyIncome] = useState('75000');
@@ -34,6 +36,11 @@ const Budget = () => {
     Salary: '0',
     Freelance: '0',
     Other: '0',
+  });
+
+  const currentMonth = new Date().toLocaleDateString('en-IN', { 
+    month: 'long', 
+    year: 'numeric' 
   });
 
   // Calculate actual spending per category from transactions
@@ -59,10 +66,26 @@ const Budget = () => {
     });
   };
 
+  const handleAddTransaction = async (transaction: Parameters<typeof addTransaction>[0]) => {
+    const result = await addTransaction(transaction);
+    if (result.success) {
+      setLastTransactionType(transaction.type);
+    }
+    return result;
+  };
+
   const totalCategoryBudget = EXPENSE_CATEGORIES.reduce(
     (sum, cat) => sum + (parseFloat(categoryBudgets[cat]) || 0),
     0
   );
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0,
+    }).format(value);
+  };
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -79,101 +102,126 @@ const Budget = () => {
             Budget Planning 💰
           </h2>
           <p className="text-muted-foreground">
-            Set your monthly targets and track spending
+            Set your targets for {currentMonth}
           </p>
         </motion.div>
 
-        {/* Main Budget Settings */}
+        {/* Section 1: Monthly Income */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
         >
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Wallet className="h-5 w-5 text-primary" />
-                Monthly Overview
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Monthly Income */}
-              <div className="space-y-2">
-                <Label htmlFor="income" className="flex items-center gap-2">
+          <Card className="mb-4">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-income/10">
                   <IndianRupee className="h-4 w-4 text-income" />
-                  Expected Monthly Income
-                </Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">₹</span>
-                  <Input
-                    id="income"
-                    type="number"
-                    value={monthlyIncome}
-                    onChange={(e) => setMonthlyIncome(e.target.value)}
-                    className="pl-8 text-lg font-semibold"
-                    placeholder="0"
-                  />
                 </div>
-              </div>
-
-              {/* Total Budget */}
-              <div className="space-y-2">
-                <Label htmlFor="budget" className="flex items-center gap-2">
-                  <Target className="h-4 w-4 text-primary" />
-                  Total Monthly Budget
-                </Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">₹</span>
-                  <Input
-                    id="budget"
-                    type="number"
-                    value={totalBudget}
-                    onChange={(e) => setTotalBudget(e.target.value)}
-                    className="pl-8 text-lg font-semibold"
-                    placeholder="0"
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Category budgets total: ₹{totalCategoryBudget.toLocaleString('en-IN')}
-                </p>
-              </div>
-
-              {/* Savings Goal */}
-              <div className="space-y-2">
-                <Label htmlFor="savings" className="flex items-center gap-2">
-                  <PiggyBank className="h-4 w-4 text-savings" />
-                  Monthly Savings Goal
-                </Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">₹</span>
-                  <Input
-                    id="savings"
-                    type="number"
-                    value={savingsGoal}
-                    onChange={(e) => setSavingsGoal(e.target.value)}
-                    className="pl-8 text-lg font-semibold"
-                    placeholder="0"
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {parseFloat(monthlyIncome) > 0 
-                    ? `${((parseFloat(savingsGoal) / parseFloat(monthlyIncome)) * 100).toFixed(1)}% of income`
-                    : '0% of income'}
-                </p>
+                Monthly Income
+              </CardTitle>
+              <CardDescription>Your expected earnings this month</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-lg font-medium text-muted-foreground">₹</span>
+                <Input
+                  type="number"
+                  value={monthlyIncome}
+                  onChange={(e) => setMonthlyIncome(e.target.value)}
+                  className="pl-8 text-xl font-bold h-12"
+                  placeholder="0"
+                />
               </div>
             </CardContent>
           </Card>
         </motion.div>
 
-        {/* Category Budgets */}
+        {/* Section 2: Overall Monthly Budget */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+        >
+          <Card className="mb-4">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                  <Target className="h-4 w-4 text-primary" />
+                </div>
+                Overall Monthly Budget
+              </CardTitle>
+              <CardDescription>Maximum you want to spend this month</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-lg font-medium text-muted-foreground">₹</span>
+                <Input
+                  type="number"
+                  value={totalBudget}
+                  onChange={(e) => setTotalBudget(e.target.value)}
+                  className="pl-8 text-xl font-bold h-12"
+                  placeholder="0"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Category budgets total: {formatCurrency(totalCategoryBudget)}
+              </p>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Section 3: Savings Goal */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
         >
+          <Card className="mb-4">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-savings/10">
+                  <PiggyBank className="h-4 w-4 text-savings" />
+                </div>
+                Savings Goal
+              </CardTitle>
+              <CardDescription>Target savings for this month</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-lg font-medium text-muted-foreground">₹</span>
+                <Input
+                  type="number"
+                  value={savingsGoal}
+                  onChange={(e) => setSavingsGoal(e.target.value)}
+                  className="pl-8 text-xl font-bold h-12"
+                  placeholder="0"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {parseFloat(monthlyIncome) > 0 
+                  ? `${((parseFloat(savingsGoal) / parseFloat(monthlyIncome)) * 100).toFixed(1)}% of income`
+                  : '0% of income'}
+              </p>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Section 4: Per-Category Budgets */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+        >
           <Card className="mb-6">
-            <CardHeader>
-              <CardTitle className="text-lg">Category-wise Budgets</CardTitle>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary">
+                  <LayoutGrid className="h-4 w-4 text-foreground" />
+                </div>
+                Per-Category Budgets
+              </CardTitle>
+              <CardDescription>Set spending limits for each category</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {EXPENSE_CATEGORIES.map((category) => {
@@ -185,13 +233,10 @@ const Budget = () => {
                 return (
                   <div key={category} className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label className="flex items-center gap-2">
+                      <Label className="flex items-center gap-2 text-sm">
                         <span className="text-lg">{CATEGORY_ICONS[category]}</span>
                         {category}
                       </Label>
-                      <span className="text-xs text-muted-foreground">
-                        Spent: ₹{spent.toLocaleString('en-IN')}
-                      </span>
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="relative flex-1">
@@ -204,12 +249,27 @@ const Budget = () => {
                           placeholder="0"
                         />
                       </div>
-                      <div className="w-24">
+                    </div>
+                    {/* Spend vs Budget Display */}
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1">
                         <Progress 
                           value={percentage} 
-                          className={`h-2 ${isOverBudget ? '[&>div]:bg-destructive' : '[&>div]:bg-primary'}`}
+                          className={cn(
+                            'h-2',
+                            isOverBudget ? '[&>div]:bg-destructive' : percentage > 80 ? '[&>div]:bg-warning' : '[&>div]:bg-primary'
+                          )}
                         />
                       </div>
+                      <span className={cn(
+                        'text-xs font-medium whitespace-nowrap min-w-[120px] text-right',
+                        isOverBudget ? 'text-destructive' : percentage > 80 ? 'text-warning' : 'text-muted-foreground'
+                      )}>
+                        {formatCurrency(spent)} / {formatCurrency(budget)}
+                        <span className="ml-1 opacity-70">
+                          ({percentage.toFixed(0)}%)
+                        </span>
+                      </span>
                     </div>
                   </div>
                 );
@@ -234,7 +294,8 @@ const Budget = () => {
       <AddTransactionDialog 
         open={dialogOpen} 
         onOpenChange={setDialogOpen} 
-        onAdd={addTransaction} 
+        onAdd={handleAddTransaction}
+        defaultType={lastTransactionType}
       />
       <BottomNav onAddClick={() => setDialogOpen(true)} />
     </div>
