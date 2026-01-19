@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { EXPENSE_CATEGORIES, CATEGORY_ICONS, type Category } from '@/lib/mockData';
+import { EXPENSE_CATEGORIES, CATEGORY_ICONS, CATEGORY_DISPLAY_NAMES, type Category } from '@/lib/mockData';
 import { useTransactions } from '@/hooks/useTransactions';
 import { AddTransactionDialog } from '@/components/AddTransactionDialog';
 import { BottomNav } from '@/components/BottomNav';
@@ -26,7 +26,9 @@ const Budget = () => {
   const [savingsGoal, setSavingsGoal] = useState('15000');
   const [categoryBudgets, setCategoryBudgets] = useState<Record<Category, string>>({
     Grocery: '8000',
-    Rent: '15000',
+    Housing: '15000',
+    'Loans & EMIs': '10000',
+    'Tuition & Education': '5000',
     Travel: '5000',
     Shopping: '5000',
     Entertainment: '3000',
@@ -235,7 +237,7 @@ const Budget = () => {
                     <div className="flex items-center justify-between">
                       <Label className="flex items-center gap-2 text-sm">
                         <span className="text-lg">{CATEGORY_ICONS[category]}</span>
-                        {category}
+                        {CATEGORY_DISPLAY_NAMES[category]}
                       </Label>
                     </div>
                     <div className="flex items-center gap-3">
