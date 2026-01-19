@@ -10,7 +10,9 @@ export interface Transaction {
 
 export type Category = 
   | 'Grocery' 
-  | 'Rent' 
+  | 'Housing' 
+  | 'Loans & EMIs'
+  | 'Tuition & Education'
   | 'Travel' 
   | 'Shopping' 
   | 'Entertainment' 
@@ -23,7 +25,9 @@ export type Category =
 
 export const EXPENSE_CATEGORIES: Category[] = [
   'Grocery',
-  'Rent',
+  'Housing',
+  'Loans & EMIs',
+  'Tuition & Education',
   'Travel',
   'Shopping',
   'Entertainment',
@@ -36,7 +40,9 @@ export const INCOME_CATEGORIES: Category[] = ['Salary', 'Freelance', 'Other'];
 
 export const CATEGORY_COLORS: Record<Category, string> = {
   Grocery: 'hsl(142, 70%, 45%)',
-  Rent: 'hsl(220, 70%, 55%)',
+  Housing: 'hsl(220, 70%, 55%)',
+  'Loans & EMIs': 'hsl(35, 85%, 50%)',
+  'Tuition & Education': 'hsl(260, 70%, 60%)',
   Travel: 'hsl(280, 60%, 55%)',
   Shopping: 'hsl(330, 70%, 55%)',
   Entertainment: 'hsl(45, 90%, 50%)',
@@ -50,7 +56,9 @@ export const CATEGORY_COLORS: Record<Category, string> = {
 
 export const CATEGORY_ICONS: Record<Category, string> = {
   Grocery: '🛒',
-  Rent: '🏠',
+  Housing: '🏠',
+  'Loans & EMIs': '💳',
+  'Tuition & Education': '🎓',
   Travel: '✈️',
   Shopping: '🛍️',
   Entertainment: '🎬',
@@ -62,10 +70,27 @@ export const CATEGORY_ICONS: Record<Category, string> = {
   Other: '📦',
 };
 
+// Category display names for UI
+export const CATEGORY_DISPLAY_NAMES: Record<Category, string> = {
+  Grocery: 'Grocery',
+  Housing: 'Housing (Rent/Home Loan)',
+  'Loans & EMIs': 'Loans & EMIs',
+  'Tuition & Education': 'Tuition & Education',
+  Travel: 'Travel',
+  Shopping: 'Shopping',
+  Entertainment: 'Entertainment',
+  Medical: 'Medical',
+  Personal: 'Personal',
+  Health: 'Health',
+  Salary: 'Salary',
+  Freelance: 'Freelance',
+  Other: 'Other',
+};
+
 // Mock transactions for demo
 export const mockTransactions: Transaction[] = [
   { id: '1', amount: 75000, date: '2025-01-01', category: 'Salary', paymentMode: 'UPI', type: 'income', note: 'Monthly salary' },
-  { id: '2', amount: 15000, date: '2025-01-02', category: 'Rent', paymentMode: 'UPI', type: 'expense', note: 'Monthly rent' },
+  { id: '2', amount: 15000, date: '2025-01-02', category: 'Housing', paymentMode: 'UPI', type: 'expense', note: 'Monthly home loan EMI' },
   { id: '3', amount: 4500, date: '2025-01-03', category: 'Grocery', paymentMode: 'UPI', type: 'expense' },
   { id: '4', amount: 2800, date: '2025-01-05', category: 'Shopping', paymentMode: 'Card', type: 'expense', note: 'New shoes' },
   { id: '5', amount: 1200, date: '2025-01-06', category: 'Entertainment', paymentMode: 'UPI', type: 'expense', note: 'Movie night' },
