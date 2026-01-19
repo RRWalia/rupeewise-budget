@@ -11,7 +11,7 @@ interface SpendingPieChartProps {
 export function SpendingPieChart({ transactions }: SpendingPieChartProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
-  const categoryData = useMemo(() => {
+  const { categoryData, totalExpenses } = useMemo(() => {
     const expenseTransactions = transactions.filter(t => t.type === 'expense');
     const categoryTotals: Record<string, number> = {};
     
@@ -21,13 +21,15 @@ export function SpendingPieChart({ transactions }: SpendingPieChartProps) {
     
     const total = Object.values(categoryTotals).reduce((sum, val) => sum + val, 0);
     
-    return Object.entries(categoryTotals).map(([category, amount]) => ({
+    const data = Object.entries(categoryTotals).map(([category, amount]) => ({
       category: category as Category,
       amount,
       percentage: total > 0 ? (amount / total) * 100 : 0,
       color: CATEGORY_COLORS[category as Category] || 'hsl(220, 15%, 55%)',
       icon: CATEGORY_ICONS[category as Category] || '📦',
     }));
+
+    return { categoryData: data, totalExpenses: total };
   }, [transactions]);
 
   const formatCurrency = (value: number) => {
@@ -47,14 +49,39 @@ export function SpendingPieChart({ transactions }: SpendingPieChartProps) {
             <span>{data.icon}</span>
             {data.category}
           </p>
-          <p className="text-sm text-muted-foreground">
-            {formatCurrency(data.amount)} ({data.percentage.toFixed(1)}%)
+          <p className="text-sm font-semibold text-card-foreground">
+            {formatCurrency(data.amount)}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {data.percentage.toFixed(1)}% of total
           </p>
         </div>
       );
     }
     return null;
   };
+
+  // Custom label for center of donut
+  const CenterLabel = () => {
+    return (
+      <text
+        x="50%"
+        y="50%"
+        textAnchor="middle"
+        dominantBaseline="middle"
+        className="fill-card-foreground"
+      >
+        <tspan x="50%" dy="-0.5em" className="text-xs fill-muted-foreground">
+          Total
+        </tspan>
+        <tspan x="50%" dy="1.4em" className="text-sm font-bold fill-card-foreground">
+          {formatCurrency(totalExpenses)}
+        </tspan>
+      </text>
+    );
+  };
+
+  const currentMonth = new Date().toLocaleDateString('en-IN', { month: 'long' });
 
   if (categoryData.length === 0) {
     return (
@@ -81,12 +108,17 @@ export function SpendingPieChart({ transactions }: SpendingPieChartProps) {
       transition={{ delay: 0.3, duration: 0.4 }}
       className="overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-card"
     >
-      <h3 className="mb-4 font-display text-lg font-semibold text-card-foreground">
-        Spending by Category
-      </h3>
+      <div className="mb-4">
+        <h3 className="font-display text-lg font-semibold text-card-foreground">
+          Spending by Category
+        </h3>
+        <p className="text-xs text-muted-foreground">
+          {formatCurrency(totalExpenses)} spent in {currentMonth}
+        </p>
+      </div>
       
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
-        <div className="h-[220px] w-full lg:w-1/2">
+        <div className="relative h-[220px] w-full lg:w-1/2">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
@@ -111,6 +143,27 @@ export function SpendingPieChart({ transactions }: SpendingPieChartProps) {
                 ))}
               </Pie>
               <Tooltip content={<CustomTooltip />} />
+              {/* Center text */}
+              <text
+                x="50%"
+                y="45%"
+                textAnchor="middle"
+                dominantBaseline="middle"
+                className="fill-muted-foreground"
+                style={{ fontSize: '11px' }}
+              >
+                Total
+              </text>
+              <text
+                x="50%"
+                y="55%"
+                textAnchor="middle"
+                dominantBaseline="middle"
+                className="fill-card-foreground"
+                style={{ fontSize: '13px', fontWeight: 600 }}
+              >
+                {formatCurrency(totalExpenses)}
+              </text>
             </PieChart>
           </ResponsiveContainer>
         </div>
@@ -138,7 +191,7 @@ export function SpendingPieChart({ transactions }: SpendingPieChartProps) {
                   {item.category}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {formatCurrency(item.amount)}
+                  {formatCurrency(item.amount)} · {item.percentage.toFixed(0)}%
                 </p>
               </div>
             </motion.div>
