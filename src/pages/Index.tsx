@@ -8,9 +8,11 @@ import { RecentTransactions } from '@/components/RecentTransactions';
 import { AddTransactionDialog } from '@/components/AddTransactionDialog';
 import { BottomNav } from '@/components/BottomNav';
 import { useTransactions } from '@/hooks/useTransactions';
+import { useBudget } from '@/hooks/useBudget';
 
 const Index = () => {
   const { transactions, loading, addTransaction } = useTransactions();
+  const { budget } = useBudget();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [lastTransactionType, setLastTransactionType] = useState<'income' | 'expense'>('expense');
 
@@ -28,11 +30,11 @@ const Index = () => {
       .filter(t => t.type === 'expense')
       .reduce((sum, t) => sum + Number(t.amount), 0);
     
-    const monthlyBudget = 60000; // Default budget
+    const monthlyBudget = parseFloat(budget.overallBudget) || 0;
     const budgetUsedPercent = monthlyBudget > 0 ? (expenses / monthlyBudget) * 100 : 0;
     
     return { income, expenses, monthlyBudget, budgetUsedPercent };
-  }, [transactions]);
+  }, [transactions, budget.overallBudget]);
 
   const handleAddTransaction = async (transaction: Parameters<typeof addTransaction>[0]) => {
     const result = await addTransaction(transaction);
