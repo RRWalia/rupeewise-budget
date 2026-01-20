@@ -1,44 +1,54 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { IndianRupee, Wallet, PiggyBank, Target, Save, LayoutGrid } from 'lucide-react';
+import { IndianRupee, Wallet, PiggyBank, Target, Save, LayoutGrid, Loader2 } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { useToast } from '@/hooks/use-toast';
 import { EXPENSE_CATEGORIES, CATEGORY_ICONS, CATEGORY_DISPLAY_NAMES, type Category } from '@/lib/mockData';
 import { useTransactions } from '@/hooks/useTransactions';
+import { useBudget } from '@/hooks/useBudget';
 import { AddTransactionDialog } from '@/components/AddTransactionDialog';
 import { BottomNav } from '@/components/BottomNav';
 import { cn } from '@/lib/utils';
 
 const Budget = () => {
-  const { toast } = useToast();
   const { transactions, addTransaction } = useTransactions();
+  const { budget, loading, saving, saveBudget } = useBudget();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [lastTransactionType, setLastTransactionType] = useState<'income' | 'expense'>('expense');
   
-  // Budget state - in production, this would come from the database
-  const [monthlyIncome, setMonthlyIncome] = useState('75000');
-  const [totalBudget, setTotalBudget] = useState('60000');
-  const [savingsGoal, setSavingsGoal] = useState('15000');
+  // Local state for form editing
+  const [monthlyIncome, setMonthlyIncome] = useState('');
+  const [totalBudget, setTotalBudget] = useState('');
+  const [savingsGoal, setSavingsGoal] = useState('');
   const [categoryBudgets, setCategoryBudgets] = useState<Record<Category, string>>({
-    Grocery: '8000',
-    Housing: '15000',
-    'Loans & EMIs': '10000',
-    'Tuition & Education': '5000',
-    Travel: '5000',
-    Shopping: '5000',
-    Entertainment: '3000',
-    Medical: '3000',
-    Personal: '2000',
-    Health: '2000',
+    Grocery: '0',
+    Housing: '0',
+    'Loans & EMIs': '0',
+    'Tuition & Education': '0',
+    Travel: '0',
+    Shopping: '0',
+    Entertainment: '0',
+    Medical: '0',
+    Personal: '0',
+    Health: '0',
     Salary: '0',
     Freelance: '0',
     Other: '0',
   });
+
+  // Sync local state with loaded budget data
+  useEffect(() => {
+    if (!loading) {
+      setMonthlyIncome(budget.monthlyIncome);
+      setTotalBudget(budget.overallBudget);
+      setSavingsGoal(budget.savingsGoal);
+      setCategoryBudgets(budget.categoryBudgets);
+    }
+  }, [loading, budget]);
 
   const currentMonth = new Date().toLocaleDateString('en-IN', { 
     month: 'long', 
@@ -60,11 +70,12 @@ const Budget = () => {
     setCategoryBudgets(prev => ({ ...prev, [category]: value }));
   };
 
-  const handleSave = () => {
-    // In production, save to database
-    toast({
-      title: 'Budget saved!',
-      description: 'Your budget settings have been updated.',
+  const handleSave = async () => {
+    await saveBudget({
+      monthlyIncome,
+      overallBudget: totalBudget,
+      savingsGoal,
+      categoryBudgets,
     });
   };
 
@@ -286,9 +297,13 @@ const Budget = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
         >
-          <Button onClick={handleSave} className="w-full" size="lg">
-            <Save className="mr-2 h-4 w-4" />
-            Save Budget Settings
+          <Button onClick={handleSave} className="w-full" size="lg" disabled={saving || loading}>
+            {saving ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="mr-2 h-4 w-4" />
+            )}
+            {saving ? 'Saving...' : 'Save Budget Settings'}
           </Button>
         </motion.div>
       </main>

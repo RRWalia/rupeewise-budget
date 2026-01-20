@@ -14,6 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      budgets: {
+        Row: {
+          created_at: string
+          entertainment: number
+          grocery: number
+          health: number
+          housing: number
+          id: string
+          loans_emis: number
+          medical: number
+          month: string
+          monthly_income: number
+          overall_budget: number
+          personal: number
+          savings_goal: number
+          shopping: number
+          travel: number
+          tuition_education: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          entertainment?: number
+          grocery?: number
+          health?: number
+          housing?: number
+          id?: string
+          loans_emis?: number
+          medical?: number
+          month: string
+          monthly_income?: number
+          overall_budget?: number
+          personal?: number
+          savings_goal?: number
+          shopping?: number
+          travel?: number
+          tuition_education?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          entertainment?: number
+          grocery?: number
+          health?: number
+          housing?: number
+          id?: string
+          loans_emis?: number
+          medical?: number
+          month?: string
+          monthly_income?: number
+          overall_budget?: number
+          personal?: number
+          savings_goal?: number
+          shopping?: number
+          travel?: number
+          tuition_education?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       transactions: {
         Row: {
           amount: number
