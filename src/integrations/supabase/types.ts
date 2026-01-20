@@ -33,6 +33,7 @@ export type Database = {
           travel: number
           tuition_education: number
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
@@ -52,6 +53,7 @@ export type Database = {
           travel?: number
           tuition_education?: number
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
@@ -71,6 +73,7 @@ export type Database = {
           travel?: number
           tuition_education?: number
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -84,6 +87,7 @@ export type Database = {
           note: string | null
           payment_mode: string
           type: string
+          user_id: string | null
         }
         Insert: {
           amount: number
@@ -94,6 +98,7 @@ export type Database = {
           note?: string | null
           payment_mode?: string
           type: string
+          user_id?: string | null
         }
         Update: {
           amount?: number
@@ -104,6 +109,7 @@ export type Database = {
           note?: string | null
           payment_mode?: string
           type?: string
+          user_id?: string | null
         }
         Relationships: []
       }

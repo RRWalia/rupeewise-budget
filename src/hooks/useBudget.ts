@@ -71,10 +71,17 @@ export function useBudget() {
   const fetchBudget = useCallback(async () => {
     try {
       setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('budgets')
         .select('*')
         .eq('month', monthKey)
+        .eq('user_id', user.id)
         .maybeSingle();
 
       if (error) throw error;
@@ -112,9 +119,13 @@ export function useBudget() {
     try {
       setSaving(true);
 
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
       // Build DB row with proper typing
       const row = {
         month: monthKey,
+        user_id: user.id,
         monthly_income: parseFloat(budgetData.monthlyIncome) || 0,
         overall_budget: parseFloat(budgetData.overallBudget) || 0,
         savings_goal: parseFloat(budgetData.savingsGoal) || 0,
@@ -132,7 +143,7 @@ export function useBudget() {
 
       const { error } = await supabase
         .from('budgets')
-        .upsert(row, { onConflict: 'month' });
+        .upsert(row, { onConflict: 'month,user_id' });
 
       if (error) throw error;
 

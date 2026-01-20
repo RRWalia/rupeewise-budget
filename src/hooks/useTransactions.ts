@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -11,6 +11,7 @@ export interface Transaction {
   note?: string;
   type: 'income' | 'expense';
   created_at: string;
+  user_id?: string;
 }
 
 export function useTransactions() {
@@ -18,11 +19,19 @@ export function useTransactions() {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const fetchTransactions = async () => {
+  const fetchTransactions = useCallback(async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setTransactions([]);
+        setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('transactions')
         .select('*')
+        .eq('user_id', user.id)
         .order('date', { ascending: false });
 
       if (error) throw error;
@@ -40,13 +49,16 @@ export function useTransactions() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
-  const addTransaction = async (transaction: Omit<Transaction, 'id' | 'created_at'>) => {
+  const addTransaction = async (transaction: Omit<Transaction, 'id' | 'created_at' | 'user_id'>) => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
       const { data, error } = await supabase
         .from('transactions')
-        .insert([transaction])
+        .insert([{ ...transaction, user_id: user.id }])
         .select()
         .single();
 
@@ -68,7 +80,7 @@ export function useTransactions() {
 
   useEffect(() => {
     fetchTransactions();
-  }, []);
+  }, [fetchTransactions]);
 
   return { transactions, loading, addTransaction, refetch: fetchTransactions };
 }
