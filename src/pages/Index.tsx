@@ -12,7 +12,7 @@ import { useBudget } from '@/hooks/useBudget';
 
 const Index = () => {
   const { transactions, loading, addTransaction } = useTransactions();
-  const { budget } = useBudget();
+  const { budget, loading: budgetLoading } = useBudget();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [lastTransactionType, setLastTransactionType] = useState<'income' | 'expense'>('expense');
 
@@ -21,20 +21,37 @@ const Index = () => {
     year: 'numeric' 
   });
 
-  const { income, expenses, monthlyBudget, budgetUsedPercent } = useMemo(() => {
-    const income = transactions
+  // Get current month key for filtering (e.g., "2026-01")
+  const currentMonthKey = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }, []);
+
+  // Filter transactions for current month only
+  const currentMonthTransactions = useMemo(() => {
+    return transactions.filter(t => {
+      const txDate = new Date(t.date);
+      const txMonthKey = `${txDate.getFullYear()}-${String(txDate.getMonth() + 1).padStart(2, '0')}`;
+      return txMonthKey === currentMonthKey;
+    });
+  }, [transactions, currentMonthKey]);
+
+  const { income, expenses, overallBudget, budgetUsedPercent, isOverBudget, overBudgetAmount } = useMemo(() => {
+    const income = currentMonthTransactions
       .filter(t => t.type === 'income')
       .reduce((sum, t) => sum + Number(t.amount), 0);
     
-    const expenses = transactions
+    const expenses = currentMonthTransactions
       .filter(t => t.type === 'expense')
       .reduce((sum, t) => sum + Number(t.amount), 0);
     
-    const monthlyBudget = parseFloat(budget.overallBudget) || 0;
-    const budgetUsedPercent = monthlyBudget > 0 ? (expenses / monthlyBudget) * 100 : 0;
+    const overallBudget = Number(budget.overallBudget) || 0;
+    const budgetUsedPercent = overallBudget > 0 ? (expenses / overallBudget) * 100 : 0;
+    const isOverBudget = budgetUsedPercent > 100;
+    const overBudgetAmount = isOverBudget ? expenses - overallBudget : 0;
     
-    return { income, expenses, monthlyBudget, budgetUsedPercent };
-  }, [transactions, budget.overallBudget]);
+    return { income, expenses, overallBudget, budgetUsedPercent, isOverBudget, overBudgetAmount };
+  }, [currentMonthTransactions, budget.overallBudget]);
 
   const handleAddTransaction = async (transaction: Parameters<typeof addTransaction>[0]) => {
     const result = await addTransaction(transaction);
@@ -78,11 +95,14 @@ const Index = () => {
             delay={0.1}
           />
           <SummaryCard
-            title="Budget used this month"
-            amount={monthlyBudget}
+            title={isOverBudget ? "Over budget!" : "Budget used this month"}
+            amount={overallBudget}
             subtitle={currentMonth}
             type="budget"
             budgetUsed={budgetUsedPercent}
+            isOverBudget={isOverBudget}
+            overBudgetAmount={overBudgetAmount}
+            loading={budgetLoading}
             delay={0.2}
           />
         </div>
@@ -91,14 +111,14 @@ const Index = () => {
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Left Column */}
           <div className="space-y-6">
-            <SpendingPieChart transactions={transactions} />
-            <RecentTransactions transactions={transactions} loading={loading} />
+            <SpendingPieChart transactions={currentMonthTransactions} />
+            <RecentTransactions transactions={currentMonthTransactions} loading={loading} />
           </div>
 
           {/* Right Column */}
           <div className="space-y-6">
-            <SavingsTrendCard transactions={transactions} />
-            <AIInsightsCard transactions={transactions} />
+            <SavingsTrendCard transactions={currentMonthTransactions} />
+            <AIInsightsCard transactions={currentMonthTransactions} />
           </div>
         </div>
       </main>
