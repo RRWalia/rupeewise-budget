@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { IndianRupee, Calendar, MessageSquare, ArrowDownCircle, ArrowUpCircle } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { IndianRupee, Calendar, MessageSquare, ArrowDownCircle, ArrowUpCircle, Sparkles, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, CATEGORY_ICONS, type Category } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { useAIAutocomplete } from '@/hooks/useAIAutocomplete';
 
 interface AddTransactionDialogProps {
   open: boolean;
@@ -32,6 +33,8 @@ export function AddTransactionDialog({ open, onOpenChange, onAdd, defaultType = 
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  
+  const { suggestion, loading: aiLoading, getSuggestion, clearSuggestion } = useAIAutocomplete();
 
   const categories = type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
 
@@ -43,7 +46,32 @@ export function AddTransactionDialog({ open, onOpenChange, onAdd, defaultType = 
   // Reset category when type changes
   useEffect(() => {
     setCategory('');
-  }, [type]);
+    clearSuggestion();
+  }, [type, clearSuggestion]);
+
+  // Debounced AI suggestion fetch
+  const fetchAISuggestion = useCallback(() => {
+    const numAmount = parseFloat(amount);
+    if (numAmount > 0) {
+      getSuggestion(numAmount, type, note || undefined);
+    }
+  }, [amount, type, note, getSuggestion]);
+
+  // Apply AI suggestion
+  const applySuggestion = () => {
+    if (suggestion) {
+      if (suggestion.category && categories.includes(suggestion.category as Category)) {
+        setCategory(suggestion.category as Category);
+      }
+      if (suggestion.suggestedNote && !note) {
+        setNote(suggestion.suggestedNote);
+      }
+      toast({
+        title: 'AI suggestion applied',
+        description: `Category: ${suggestion.category}`,
+      });
+    }
+  };
 
   const setDateToYesterday = () => {
     const yesterday = new Date();
@@ -90,6 +118,7 @@ export function AddTransactionDialog({ open, onOpenChange, onAdd, defaultType = 
       setCategory('');
       setNote('');
       setDate(new Date().toISOString().split('T')[0]);
+      clearSuggestion();
       onOpenChange(false);
     }
   };
@@ -150,10 +179,48 @@ export function AddTransactionDialog({ open, onOpenChange, onAdd, defaultType = 
             </div>
           </div>
 
+          {/* AI Suggestion Button */}
+          {parseFloat(amount) > 0 && (
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={fetchAISuggestion}
+                disabled={aiLoading}
+                className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
+              >
+                {aiLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                {aiLoading ? 'Thinking...' : 'AI Suggest'}
+              </Button>
+              
+              {suggestion && !aiLoading && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={applySuggestion}
+                  className="gap-1 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Apply: {suggestion.category}
+                  {suggestion.confidence === 'high' && (
+                    <span className="ml-1 rounded bg-income/20 px-1.5 py-0.5 text-[10px] text-income">✓</span>
+                  )}
+                </Button>
+              )}
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="category">Category</Label>
             <Select value={category} onValueChange={(v) => setCategory(v as Category)}>
-              <SelectTrigger>
+              <SelectTrigger className={cn(
+                suggestion?.category === category && category !== '' && 'ring-2 ring-primary/30'
+              )}>
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
               <SelectContent>
@@ -162,6 +229,9 @@ export function AddTransactionDialog({ open, onOpenChange, onAdd, defaultType = 
                     <span className="flex items-center gap-2">
                       <span>{CATEGORY_ICONS[cat]}</span>
                       {cat}
+                      {suggestion?.category === cat && (
+                        <Sparkles className="ml-auto h-3 w-3 text-primary" />
+                      )}
                     </span>
                   </SelectItem>
                 ))}
@@ -242,12 +312,22 @@ export function AddTransactionDialog({ open, onOpenChange, onAdd, defaultType = 
               <MessageSquare className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
                 id="note"
-                placeholder="Add a note..."
+                placeholder={suggestion?.suggestedNote || "Add a note..."}
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 className="pl-10"
               />
             </div>
+            {suggestion?.suggestedNote && !note && (
+              <button
+                type="button"
+                onClick={() => setNote(suggestion.suggestedNote)}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                <Sparkles className="mr-1 inline h-3 w-3" />
+                Use suggestion: "{suggestion.suggestedNote}"
+              </button>
+            )}
           </div>
 
           <Button 
