@@ -52,13 +52,41 @@ export function useAuth() {
   }, []);
 
   const signInWithGoogle = useCallback(async () => {
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin,
-      },
-    });
-    return { data, error };
+    try {
+      // Check if we're on a preview URL (not the published .lovable.app domain)
+      const isPreviewUrl = window.location.hostname.includes('preview--');
+      
+      if (isPreviewUrl) {
+        // For preview URLs, bypass auth-bridge to avoid 403 errors
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: window.location.origin,
+            skipBrowserRedirect: true,
+          },
+        });
+        
+        if (error) return { data: null, error };
+        
+        // Manually redirect to the OAuth URL
+        if (data?.url) {
+          window.location.href = data.url;
+        }
+        
+        return { data, error: null };
+      } else {
+        // For published URLs, use standard flow
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: window.location.origin,
+          },
+        });
+        return { data, error };
+      }
+    } catch (err) {
+      return { data: null, error: err as Error };
+    }
   }, []);
 
   return {
