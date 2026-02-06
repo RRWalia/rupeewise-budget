@@ -125,7 +125,7 @@ export function AddTransactionDialog({ open, onOpenChange, onAdd, defaultType = 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px] overflow-visible">
         <DialogHeader>
           <DialogTitle className="font-display text-xl">Add Transaction</DialogTitle>
         </DialogHeader>
@@ -223,7 +223,7 @@ export function AddTransactionDialog({ open, onOpenChange, onAdd, defaultType = 
               )}>
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent portal={false}>
                 {categories.map((cat) => (
                   <SelectItem key={cat} value={cat}>
                     <span className="flex items-center gap-2">
