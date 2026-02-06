@@ -4,8 +4,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, CATEGORY_ICONS, type Category } from '@/lib/mockData';
+import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, type Category } from '@/lib/mockData';
+import { CategoryDropdown } from '@/components/CategoryDropdown';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useAIAutocomplete } from '@/hooks/useAIAutocomplete';
@@ -125,7 +125,7 @@ export function AddTransactionDialog({ open, onOpenChange, onAdd, defaultType = 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px] overflow-visible">
+      <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle className="font-display text-xl">Add Transaction</DialogTitle>
         </DialogHeader>
@@ -215,29 +215,12 @@ export function AddTransactionDialog({ open, onOpenChange, onAdd, defaultType = 
             </div>
           )}
 
-          <div className="space-y-2">
-            <Label htmlFor="category">Category</Label>
-            <Select value={category ?? undefined} onValueChange={(v) => setCategory(v as Category)}>
-              <SelectTrigger className={cn(
-                suggestion?.category === category && category && 'ring-2 ring-primary/30'
-              )}>
-                <SelectValue placeholder="Select category" />
-              </SelectTrigger>
-              <SelectContent portal={false}>
-                {categories.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    <span className="flex items-center gap-2">
-                      <span>{CATEGORY_ICONS[cat]}</span>
-                      {cat}
-                      {suggestion?.category === cat && (
-                        <Sparkles className="ml-auto h-3 w-3 text-primary" />
-                      )}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <CategoryDropdown
+            categories={categories}
+            value={category}
+            onChange={setCategory}
+            suggestion={suggestion}
+          />
 
           <div className="space-y-2">
             <Label htmlFor="date">Transaction Date</Label>
