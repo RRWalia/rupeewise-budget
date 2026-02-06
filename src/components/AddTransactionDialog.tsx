@@ -27,7 +27,7 @@ interface AddTransactionDialogProps {
 export function AddTransactionDialog({ open, onOpenChange, onAdd, defaultType = 'expense' }: AddTransactionDialogProps) {
   const [type, setType] = useState<'expense' | 'income'>(defaultType);
   const [amount, setAmount] = useState('');
-  const [category, setCategory] = useState<Category | ''>('');
+  const [category, setCategory] = useState<Category | undefined>(undefined);
   const [paymentMode, setPaymentMode] = useState<'UPI' | 'Card' | 'Cash'>('UPI');
   const [note, setNote] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -45,7 +45,7 @@ export function AddTransactionDialog({ open, onOpenChange, onAdd, defaultType = 
 
   // Reset category when type changes
   useEffect(() => {
-    setCategory('');
+    setCategory(undefined);
     clearSuggestion();
   }, [type, clearSuggestion]);
 
@@ -60,7 +60,7 @@ export function AddTransactionDialog({ open, onOpenChange, onAdd, defaultType = 
   // Apply AI suggestion
   const applySuggestion = () => {
     if (suggestion) {
-      if (suggestion.category && categories.includes(suggestion.category as Category)) {
+      if (suggestion.category && (categories as readonly string[]).includes(suggestion.category)) {
         setCategory(suggestion.category as Category);
       }
       if (suggestion.suggestedNote && !note) {
@@ -115,7 +115,7 @@ export function AddTransactionDialog({ open, onOpenChange, onAdd, defaultType = 
       });
       // Reset form
       setAmount('');
-      setCategory('');
+      setCategory(undefined);
       setNote('');
       setDate(new Date().toISOString().split('T')[0]);
       clearSuggestion();
@@ -217,9 +217,9 @@ export function AddTransactionDialog({ open, onOpenChange, onAdd, defaultType = 
 
           <div className="space-y-2">
             <Label htmlFor="category">Category</Label>
-            <Select value={category} onValueChange={(v) => setCategory(v as Category)}>
+            <Select value={category ?? undefined} onValueChange={(v) => setCategory(v as Category)}>
               <SelectTrigger className={cn(
-                suggestion?.category === category && category !== '' && 'ring-2 ring-primary/30'
+                suggestion?.category === category && category && 'ring-2 ring-primary/30'
               )}>
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
