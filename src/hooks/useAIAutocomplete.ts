@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface AISuggestion {
@@ -43,10 +43,10 @@ export function useAIAutocomplete() {
     }
   };
 
-  const clearSuggestion = () => {
+  const clearSuggestion = useCallback(() => {
     setSuggestion(null);
     setError(null);
-  };
+  }, []);
 
   return { suggestion, loading, error, getSuggestion, clearSuggestion };
 }

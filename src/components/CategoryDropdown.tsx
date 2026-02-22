@@ -1,5 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Check, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { CATEGORY_ICONS, type Category } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
@@ -13,70 +12,39 @@ interface CategoryDropdownProps {
 }
 
 export function CategoryDropdown({ categories, value, onChange, suggestion }: CategoryDropdownProps) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, []);
-
   return (
-    <div className="space-y-2" ref={ref}>
+    <div className="space-y-2">
       <Label>Category</Label>
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className={cn(
-          'flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
-          suggestion?.category === value && value && 'ring-2 ring-primary/30',
-          !value && 'text-muted-foreground'
-        )}
-      >
-        {value ? (
-          <span className="flex items-center gap-2">
-            <span>{CATEGORY_ICONS[value]}</span>
-            {value}
-          </span>
-        ) : (
-          'Select category'
-        )}
-        <ChevronDown className="h-4 w-4 opacity-50" />
-      </button>
-
-      {open && (
-        <div className="relative z-[200]">
-          <div className="absolute top-0 left-0 w-full max-h-60 overflow-auto rounded-md border bg-popover p-1 shadow-md">
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                type="button"
-                onClick={() => {
-                  onChange(cat);
-                  setOpen(false);
-                }}
-                className={cn(
-                  'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground',
-                  value === cat && 'bg-accent text-accent-foreground'
-                )}
-              >
-                <span className="flex h-4 w-4 items-center justify-center">
-                  {value === cat && <Check className="h-4 w-4" />}
-                </span>
-                <span>{CATEGORY_ICONS[cat]}</span>
-                {cat}
-                {suggestion?.category === cat && (
-                  <Sparkles className="ml-auto h-3 w-3 text-primary" />
-                )}
-              </button>
-            ))}
-          </div>
+      <div className="relative">
+        <select
+          value={value || ''}
+          onChange={(e) => onChange(e.target.value as Category)}
+          className={cn(
+            'flex h-10 w-full appearance-none rounded-md border border-input bg-background px-3 py-2 pr-8 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+            suggestion?.category === value && value && 'ring-2 ring-primary/30',
+            !value && 'text-muted-foreground'
+          )}
+        >
+          <option value="" disabled>Select category</option>
+          {categories.map((cat) => (
+            <option key={cat} value={cat}>
+              {CATEGORY_ICONS[cat]} {cat}
+            </option>
+          ))}
+        </select>
+        <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+          <svg className="h-4 w-4 opacity-50" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
         </div>
+      </div>
+      {suggestion?.category && (
+        <button
+          type="button"
+          onClick={() => onChange(suggestion.category as Category)}
+          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+        >
+          <Sparkles className="h-3 w-3 text-primary" />
+          AI suggests: {suggestion.category}
+        </button>
       )}
     </div>
   );
