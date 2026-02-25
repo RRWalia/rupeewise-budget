@@ -51,6 +51,13 @@ export function useAuth() {
     return { error };
   }, []);
 
+  const resetPassword = useCallback(async (email: string) => {
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth`,
+    });
+    return { data, error };
+  }, []);
+
   const signInWithGoogle = useCallback(async () => {
     try {
       // Check if we're on a preview URL (not the published .lovable.app domain)
@@ -97,6 +104,7 @@ export function useAuth() {
     signIn,
     signOut,
     signInWithGoogle,
+    resetPassword,
     isAuthenticated: !!user,
   };
 }
