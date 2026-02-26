@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { IndianRupee, Calendar, MessageSquare, ArrowDownCircle, ArrowUpCircle, Sparkles, Loader2, AlertCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -43,17 +43,21 @@ export function AddTransactionDialog({ open, onOpenChange, onAdd, defaultType = 
   const { suggestion, loading: aiLoading, error: aiError, getSuggestion, clearSuggestion } = useAIAutocomplete();
 
   const categories = type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
+  const prevTypeRef = useRef(type);
 
   // Update type when defaultType changes
   useEffect(() => {
     setType(defaultType);
   }, [defaultType]);
 
-  // Reset category when type changes (category lists differ)
+  // Reset category ONLY when type actually changes (not on mount or re-renders)
   useEffect(() => {
-    setCategory(undefined);
-    clearSuggestion();
-    setErrors({});
+    if (prevTypeRef.current !== type) {
+      prevTypeRef.current = type;
+      setCategory(undefined);
+      clearSuggestion();
+      setErrors({});
+    }
   }, [type, clearSuggestion]);
 
   // Clear errors when user interacts
