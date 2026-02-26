@@ -41,15 +41,10 @@ export function useTransactions() {
       })));
     } catch (error) {
       console.error('Error fetching transactions:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load transactions',
-        variant: 'destructive',
-      });
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, []);
 
   const addTransaction = async (transaction: Omit<Transaction, 'id' | 'created_at' | 'user_id'>) => {
     try {
