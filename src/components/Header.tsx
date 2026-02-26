@@ -1,4 +1,4 @@
-import { Bell, User, LogOut } from 'lucide-react';
+import { User, LogOut } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -57,10 +57,6 @@ export function Header() {
         </div>
         
         <div className="flex items-center gap-2">
-          <button className="flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">
-            <Bell className="h-5 w-5" />
-          </button>
-          
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary text-secondary-foreground transition-colors hover:bg-secondary/80">
