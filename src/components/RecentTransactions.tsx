@@ -63,8 +63,9 @@ export function RecentTransactions({ transactions, loading }: RecentTransactions
       </div>
 
       {recentTransactions.length === 0 ? (
-        <div className="flex h-32 items-center justify-center text-muted-foreground">
-          No transactions yet. Add your first one!
+        <div className="flex h-32 flex-col items-center justify-center gap-2 text-muted-foreground">
+          <p className="text-sm">Start tracking to see your spending patterns.</p>
+          <p className="text-xs">Tap the <span className="font-semibold text-primary">+</span> button below to add your first transaction.</p>
         </div>
       ) : (
         <div className="space-y-3">

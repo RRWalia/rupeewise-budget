@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { IndianRupee, Calendar, MessageSquare, ArrowDownCircle, ArrowUpCircle, Sparkles, Loader2 } from 'lucide-react';
+import { IndianRupee, Calendar, MessageSquare, ArrowDownCircle, ArrowUpCircle, Sparkles, Loader2, AlertCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +24,11 @@ interface AddTransactionDialogProps {
   defaultType?: 'income' | 'expense';
 }
 
+interface FormErrors {
+  amount?: string;
+  category?: string;
+}
+
 export function AddTransactionDialog({ open, onOpenChange, onAdd, defaultType = 'expense' }: AddTransactionDialogProps) {
   const [type, setType] = useState<'expense' | 'income'>(defaultType);
   const [amount, setAmount] = useState('');
@@ -32,9 +37,10 @@ export function AddTransactionDialog({ open, onOpenChange, onAdd, defaultType = 
   const [note, setNote] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<FormErrors>({});
   const { toast } = useToast();
   
-  const { suggestion, loading: aiLoading, getSuggestion, clearSuggestion } = useAIAutocomplete();
+  const { suggestion, loading: aiLoading, error: aiError, getSuggestion, clearSuggestion } = useAIAutocomplete();
 
   const categories = type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
 
@@ -43,13 +49,25 @@ export function AddTransactionDialog({ open, onOpenChange, onAdd, defaultType = 
     setType(defaultType);
   }, [defaultType]);
 
-  // Reset category when type changes
+  // Reset category when type changes (category lists differ)
   useEffect(() => {
     setCategory(undefined);
     clearSuggestion();
+    setErrors({});
   }, [type, clearSuggestion]);
 
-  // Debounced AI suggestion fetch
+  // Clear errors when user interacts
+  const handleAmountChange = (val: string) => {
+    setAmount(val);
+    if (errors.amount) setErrors(prev => ({ ...prev, amount: undefined }));
+  };
+
+  const handleCategoryChange = (val: Category) => {
+    setCategory(val);
+    if (errors.category) setErrors(prev => ({ ...prev, category: undefined }));
+  };
+
+  // AI suggestion fetch
   const fetchAISuggestion = useCallback(() => {
     const numAmount = parseFloat(amount);
     if (numAmount > 0) {
@@ -61,7 +79,7 @@ export function AddTransactionDialog({ open, onOpenChange, onAdd, defaultType = 
   const applySuggestion = () => {
     if (suggestion) {
       if (suggestion.category && (categories as readonly string[]).includes(suggestion.category)) {
-        setCategory(suggestion.category as Category);
+        handleCategoryChange(suggestion.category as Category);
       }
       if (suggestion.suggestedNote && !note) {
         setNote(suggestion.suggestedNote);
@@ -83,24 +101,29 @@ export function AddTransactionDialog({ open, onOpenChange, onAdd, defaultType = 
     setDate(new Date().toISOString().split('T')[0]);
   };
 
+  const validate = (): boolean => {
+    const newErrors: FormErrors = {};
+    if (!amount || parseFloat(amount) <= 0) {
+      newErrors.amount = 'Please enter a valid amount';
+    }
+    if (!category) {
+      newErrors.category = 'Please select a category';
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!amount || !category) {
-      toast({
-        title: 'Missing fields',
-        description: 'Please fill in amount and category',
-        variant: 'destructive',
-      });
-      return;
-    }
+    if (!validate()) return;
 
     setLoading(true);
     
     const result = await onAdd({
       amount: parseFloat(amount),
       date,
-      category,
+      category: category!,
       payment_mode: paymentMode,
       note: note || undefined,
       type,
@@ -118,6 +141,7 @@ export function AddTransactionDialog({ open, onOpenChange, onAdd, defaultType = 
       setCategory(undefined);
       setNote('');
       setDate(new Date().toISOString().split('T')[0]);
+      setErrors({});
       clearSuggestion();
       onOpenChange(false);
     }
@@ -131,7 +155,7 @@ export function AddTransactionDialog({ open, onOpenChange, onAdd, defaultType = 
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Type Toggle - Large, Clear Buttons */}
+          {/* Type Toggle */}
           <div className="space-y-2">
             <Label>Transaction Type</Label>
             <div className="grid grid-cols-2 gap-3">
@@ -173,44 +197,59 @@ export function AddTransactionDialog({ open, onOpenChange, onAdd, defaultType = 
                 type="number"
                 placeholder="0"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="pl-10 text-lg font-semibold"
+                onChange={(e) => handleAmountChange(e.target.value)}
+                className={cn('pl-10 text-lg font-semibold', errors.amount && 'border-destructive')}
+                aria-invalid={!!errors.amount}
               />
             </div>
+            {errors.amount && (
+              <p className="flex items-center gap-1 text-xs text-destructive">
+                <AlertCircle className="h-3 w-3" />
+                {errors.amount}
+              </p>
+            )}
           </div>
 
           {/* AI Suggestion Button */}
           {parseFloat(amount) > 0 && (
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={fetchAISuggestion}
-                disabled={aiLoading}
-                className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
-              >
-                {aiLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Sparkles className="h-4 w-4" />
-                )}
-                {aiLoading ? 'Thinking...' : 'AI Suggest'}
-              </Button>
-              
-              {suggestion && !aiLoading && (
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
-                  onClick={applySuggestion}
-                  className="gap-1 text-xs text-muted-foreground hover:text-foreground"
+                  onClick={fetchAISuggestion}
+                  disabled={aiLoading}
+                  className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
                 >
-                  Apply: {suggestion.category}
-                  {suggestion.confidence === 'high' && (
-                    <span className="ml-1 rounded bg-income/20 px-1.5 py-0.5 text-[10px] text-income">✓</span>
+                  {aiLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
                   )}
+                  {aiLoading ? 'Thinking...' : 'AI Suggest'}
                 </Button>
+                
+                {suggestion && !aiLoading && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={applySuggestion}
+                    className="gap-1 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    Apply: {suggestion.category}
+                    {suggestion.confidence === 'high' && (
+                      <span className="ml-1 rounded bg-income/20 px-1.5 py-0.5 text-[10px] text-income">✓</span>
+                    )}
+                  </Button>
+                )}
+              </div>
+              {aiError && (
+                <p className="flex items-center gap-1 text-xs text-destructive">
+                  <AlertCircle className="h-3 w-3" />
+                  {aiError}
+                </p>
               )}
             </div>
           )}
@@ -218,8 +257,9 @@ export function AddTransactionDialog({ open, onOpenChange, onAdd, defaultType = 
           <CategoryDropdown
             categories={categories}
             value={category}
-            onChange={setCategory}
+            onChange={handleCategoryChange}
             suggestion={suggestion}
+            error={errors.category}
           />
 
           <div className="space-y-2">
