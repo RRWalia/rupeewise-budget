@@ -113,7 +113,8 @@ export function useBudget() {
     } finally {
       setLoading(false);
     }
-  }, [monthKey, toast]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [monthKey]);
 
   const saveBudget = async (budgetData: BudgetData): Promise<{ success: boolean }> => {
     try {
