@@ -61,8 +61,11 @@ export function useAuth() {
 
   const signInWithGoogle = useCallback(async () => {
     try {
+      const redirectUri = window.location.origin.includes('preview')
+        ? 'https://rupeewise-budget.lovable.app'
+        : window.location.origin;
       const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin,
+        redirect_uri: redirectUri,
       });
       if (result.error) {
         return { data: null, error: result.error };
