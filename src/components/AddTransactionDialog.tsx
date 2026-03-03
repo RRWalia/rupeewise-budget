@@ -20,7 +20,7 @@ interface AddTransactionDialogProps {
     payment_mode: string;
     note?: string;
     type: 'income' | 'expense';
-  }) => Promise<{ success: boolean }>;
+  }) => Promise<{ success: boolean; message?: string }>;
   defaultType?: 'income' | 'expense';
 }
 
@@ -148,6 +148,12 @@ export function AddTransactionDialog({ open, onOpenChange, onAdd, defaultType = 
       setErrors({});
       clearSuggestion();
       onOpenChange(false);
+    } else {
+      toast({
+        title: 'Could not save transaction',
+        description: result.message || 'Please try again.',
+        variant: 'destructive',
+      });
     }
   };
 
