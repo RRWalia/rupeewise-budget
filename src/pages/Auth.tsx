@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { IndianRupee, Mail, Lock, Eye, EyeOff, Loader2, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -107,8 +107,6 @@ const Auth = () => {
     }
   };
 
-  const hasAutoOpenedGoogleRef = useRef(false);
-
   const runGoogleSignIn = useCallback(async () => {
     setGoogleLoading(true);
     try {
@@ -121,25 +119,12 @@ const Auth = () => {
     }
   }, [signInWithGoogle, toast]);
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('oauth') !== 'google' || hasAutoOpenedGoogleRef.current) return;
-
-    hasAutoOpenedGoogleRef.current = true;
-    runGoogleSignIn().finally(() => {
-      params.delete('oauth');
-      const search = params.toString();
-      const cleanUrl = `${window.location.pathname}${search ? `?${search}` : ''}${window.location.hash}`;
-      window.history.replaceState({}, '', cleanUrl);
-    });
-  }, [runGoogleSignIn]);
-
   const handleGoogleSignIn = async () => {
-    // OAuth inside preview iframes can get blocked by Google (403).
-    // Open a top-level tab and start OAuth there.
+    // Google blocks OAuth when triggered inside embedded previews.
+    // Move users to a standalone tab first, then they can click Google there.
     if (window.self !== window.top) {
-      const popup = window.open(`${window.location.origin}?oauth=google`, '_blank', 'noopener,noreferrer');
-      if (!popup) {
+      const standaloneTab = window.open(`${window.location.origin}${window.location.pathname}`, '_blank', 'noopener,noreferrer');
+      if (!standaloneTab) {
         toast({
           title: 'Popup blocked',
           description: 'Please allow popups and try Google sign in again.',
@@ -149,8 +134,8 @@ const Auth = () => {
       }
 
       toast({
-        title: 'Continue sign in in new tab',
-        description: 'After signing in, return here and refresh if needed.',
+        title: 'Opened standalone tab',
+        description: 'Click Continue with Google in that new tab.',
       });
       return;
     }
