@@ -49,7 +49,7 @@ export function useTransactions() {
   const addTransaction = async (transaction: Omit<Transaction, 'id' | 'created_at' | 'user_id'>) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      if (!user) throw new Error('Session expired. Please sign in again.');
 
       const { data, error } = await supabase
         .from('transactions')
@@ -64,12 +64,13 @@ export function useTransactions() {
       return { success: true, data: typedData };
     } catch (error) {
       console.error('Error adding transaction:', error);
+      const message = error instanceof Error ? error.message : 'Failed to add transaction';
       toast({
         title: 'Error',
-        description: 'Failed to add transaction',
+        description: message,
         variant: 'destructive',
       });
-      return { success: false, error };
+      return { success: false, error, message };
     }
   };
 
