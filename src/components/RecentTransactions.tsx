@@ -10,7 +10,7 @@ interface RecentTransactionsProps {
 }
 
 export function RecentTransactions({ transactions, loading }: RecentTransactionsProps) {
-  const recentTransactions = transactions.slice(0, 5);
+  const recentTransactions = transactions.slice(0, 8);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-IN', {

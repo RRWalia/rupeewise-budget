@@ -118,15 +118,15 @@ export function SpendingPieChart({ transactions }: SpendingPieChartProps) {
       </div>
       
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
-        <div className="relative h-[220px] w-full lg:w-1/2">
+        <div className="relative h-[280px] w-full lg:h-[320px] lg:w-1/2">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
                 data={categoryData}
                 cx="50%"
                 cy="50%"
-                innerRadius={50}
-                outerRadius={85}
+                innerRadius={65}
+                outerRadius={110}
                 paddingAngle={3}
                 dataKey="amount"
                 onMouseEnter={(_, index) => setActiveIndex(index)}

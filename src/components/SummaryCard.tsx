@@ -135,7 +135,7 @@ export function SummaryCard({
         </div>
       )}
 
-      {trend && type !== 'budget' && (
+      {trend && type !== 'budget' && amount > 0 && (
         <div className="mt-3 flex items-center gap-1">
           {trend === 'up' ? (
             <TrendingUp className="h-3.5 w-3.5 text-income" />
