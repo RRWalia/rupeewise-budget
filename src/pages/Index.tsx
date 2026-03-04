@@ -5,29 +5,25 @@ import { SpendingPieChart } from '@/components/SpendingPieChart';
 import { SavingsTrendCard } from '@/components/SavingsTrendCard';
 import { AIInsightsCard } from '@/components/AIInsightsCard';
 import { RecentTransactions } from '@/components/RecentTransactions';
-import { AddTransactionDialog } from '@/components/AddTransactionDialog';
-import { BottomNav } from '@/components/BottomNav';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useBudget } from '@/hooks/useBudget';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const Index = () => {
-  const { transactions, loading, addTransaction } = useTransactions();
+  const { transactions, loading } = useTransactions();
   const { budget, loading: budgetLoading } = useBudget();
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [lastTransactionType, setLastTransactionType] = useState<'income' | 'expense'>('expense');
+  const isMobile = useIsMobile();
 
   const currentMonth = new Date().toLocaleDateString('en-IN', { 
     month: 'long', 
     year: 'numeric' 
   });
 
-  // Get current month key for filtering (e.g., "2026-01")
   const currentMonthKey = useMemo(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   }, []);
 
-  // Filter transactions for current month only
   const currentMonthTransactions = useMemo(() => {
     return transactions.filter(t => {
       const txDate = new Date(t.date);
@@ -53,23 +49,24 @@ const Index = () => {
     return { income, expenses, overallBudget, budgetUsedPercent, isOverBudget, overBudgetAmount };
   }, [currentMonthTransactions, budget.overallBudget]);
 
-  const handleAddTransaction = async (transaction: Parameters<typeof addTransaction>[0]) => {
-    const result = await addTransaction(transaction);
-    if (result.success) {
-      setLastTransactionType(transaction.type);
-    }
-    return result;
-  };
+  // Determine greeting based on time of day
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  }, []);
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <Header />
+    <div className="bg-background">
+      {/* Show header only on mobile */}
+      {isMobile && <Header />}
       
-      <main className="container py-6">
+      <div className="container py-6">
         {/* Welcome Section */}
         <div className="mb-6">
           <h2 className="font-display text-2xl font-bold text-foreground">
-            Good afternoon! 👋
+            {greeting}! 👋
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
             Track UPI, cards, wallets & cash in one view—with AI tips to save more.
@@ -83,7 +80,7 @@ const Index = () => {
             amount={income}
             subtitle={currentMonth}
             type="income"
-            trend="up"
+            trend={income > 0 ? "up" : undefined}
             delay={0}
           />
           <SummaryCard
@@ -91,7 +88,7 @@ const Index = () => {
             amount={expenses}
             subtitle={currentMonth}
             type="expense"
-            trend="down"
+            trend={expenses > 0 ? "down" : undefined}
             delay={0.1}
           />
           <SummaryCard
@@ -121,15 +118,7 @@ const Index = () => {
             <AIInsightsCard transactions={currentMonthTransactions} />
           </div>
         </div>
-      </main>
-
-      <AddTransactionDialog 
-        open={dialogOpen} 
-        onOpenChange={setDialogOpen} 
-        onAdd={handleAddTransaction}
-        defaultType={lastTransactionType}
-      />
-      <BottomNav onAddClick={() => setDialogOpen(true)} />
+      </div>
     </div>
   );
 };

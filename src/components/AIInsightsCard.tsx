@@ -115,7 +115,7 @@ export function AIInsightsCard({ transactions }: AIInsightsCardProps) {
                   <p className={cn('text-sm font-medium', styles.text)}>
                     {insight.title}
                   </p>
-                  <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                  <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground whitespace-normal break-words">
                     {insight.description}
                   </p>
                   {insight.savings && (
