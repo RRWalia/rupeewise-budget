@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Header } from '@/components/Header';
 import { SummaryCard } from '@/components/SummaryCard';
 import { SpendingPieChart } from '@/components/SpendingPieChart';
@@ -49,12 +49,18 @@ const Index = () => {
     return { income, expenses, overallBudget, budgetUsedPercent, isOverBudget, overBudgetAmount };
   }, [currentMonthTransactions, budget.overallBudget]);
 
-  // Determine greeting based on time of day
-  const greeting = useMemo(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
+  const [greeting, setGreeting] = useState('');
+
+  useEffect(() => {
+    const updateGreeting = () => {
+      const hour = new Date().getHours();
+      if (hour < 12) setGreeting('Good morning');
+      else if (hour < 17) setGreeting('Good afternoon');
+      else setGreeting('Good evening');
+    };
+    updateGreeting();
+    const interval = setInterval(updateGreeting, 60000); // update every minute
+    return () => clearInterval(interval);
   }, []);
 
   return (
