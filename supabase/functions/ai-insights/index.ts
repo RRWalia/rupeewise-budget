@@ -39,23 +39,40 @@ serve(async (req) => {
     const userId = user.id;
 
     const { transactions } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+
+    // Input validation
+    if (!Array.isArray(transactions) || transactions.length > 500) {
+      return new Response(JSON.stringify({ error: 'Invalid or too many transactions (max 500)' }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    // Validate that transactions belong to the authenticated user
-    if (Array.isArray(transactions)) {
-      for (const t of transactions) {
-        if (t.user_id && t.user_id !== userId) {
-          return new Response(JSON.stringify({ error: 'Forbidden: Transaction does not belong to user' }), {
-            status: 403,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
+    for (const t of transactions) {
+      if (!t.type || !['income', 'expense'].includes(t.type)) {
+        return new Response(JSON.stringify({ error: 'Invalid transaction type' }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (typeof t.amount !== 'number' || !isFinite(t.amount) || t.amount < 0) {
+        return new Response(JSON.stringify({ error: 'Invalid amount' }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (typeof t.category !== 'string' || t.category.length > 100) {
+        return new Response(JSON.stringify({ error: 'Invalid category' }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      // Ownership validation
+      if (t.user_id && t.user_id !== userId) {
+        return new Response(JSON.stringify({ error: 'Forbidden: Transaction does not belong to user' }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
     }
+
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     // Calculate spending summary
     const expenses = transactions.filter((t: any) => t.type === 'expense');
