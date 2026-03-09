@@ -134,7 +134,19 @@ const Index = () => {
           </div>
         </div>
       </div>
+
+      {editingTransaction && (
+        <EditTransactionDialog
+          open={!!editingTransaction}
+          onOpenChange={(open) => { if (!open) setEditingTransaction(null); }}
+          transaction={editingTransaction}
+          onUpdate={updateTransaction}
+          onDelete={deleteTransaction}
+        />
+      )}
     </div>
+  );
+};
   );
 };
 
