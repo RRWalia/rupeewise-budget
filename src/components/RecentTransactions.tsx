@@ -82,7 +82,6 @@ export function RecentTransactions({ transactions, loading, onTransactionClick }
               tabIndex={0}
               onKeyDown={(e) => { if (e.key === 'Enter') onTransactionClick?.(transaction); }}
             >
-            >
               <div 
                 className="flex h-10 w-10 items-center justify-center rounded-xl text-lg"
                 style={{ backgroundColor: `${CATEGORY_COLORS[transaction.category as Category] || 'hsl(220, 15%, 55%)'}20` }}
