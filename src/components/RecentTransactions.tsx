@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Pencil } from 'lucide-react';
 import { CATEGORY_ICONS, CATEGORY_COLORS, type Category } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
 import type { Transaction } from '@/hooks/useTransactions';
@@ -7,6 +7,7 @@ import type { Transaction } from '@/hooks/useTransactions';
 interface RecentTransactionsProps {
   transactions: Transaction[];
   loading?: boolean;
+  onTransactionClick?: (transaction: Transaction) => void;
 }
 
 export function RecentTransactions({ transactions, loading }: RecentTransactionsProps) {
