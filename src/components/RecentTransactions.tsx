@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Pencil } from 'lucide-react';
 import { CATEGORY_ICONS, CATEGORY_COLORS, type Category } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
 import type { Transaction } from '@/hooks/useTransactions';
@@ -7,9 +7,10 @@ import type { Transaction } from '@/hooks/useTransactions';
 interface RecentTransactionsProps {
   transactions: Transaction[];
   loading?: boolean;
+  onTransactionClick?: (transaction: Transaction) => void;
 }
 
-export function RecentTransactions({ transactions, loading }: RecentTransactionsProps) {
+export function RecentTransactions({ transactions, loading, onTransactionClick }: RecentTransactionsProps) {
   const recentTransactions = transactions.slice(0, 8);
 
   const formatCurrency = (value: number) => {
@@ -75,7 +76,11 @@ export function RecentTransactions({ transactions, loading }: RecentTransactions
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.7 + index * 0.05 }}
-              className="flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-secondary/50"
+              className="flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-secondary/50 cursor-pointer group"
+              onClick={() => onTransactionClick?.(transaction)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === 'Enter') onTransactionClick?.(transaction); }}
             >
               <div 
                 className="flex h-10 w-10 items-center justify-center rounded-xl text-lg"
@@ -109,6 +114,8 @@ export function RecentTransactions({ transactions, loading }: RecentTransactions
                   {transaction.category}
                 </p>
               </div>
+
+              <Pencil className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
             </motion.div>
           ))}
         </div>

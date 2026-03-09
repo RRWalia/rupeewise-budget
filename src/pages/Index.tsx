@@ -5,12 +5,14 @@ import { SpendingPieChart } from '@/components/SpendingPieChart';
 import { SavingsTrendCard } from '@/components/SavingsTrendCard';
 import { AIInsightsCard } from '@/components/AIInsightsCard';
 import { RecentTransactions } from '@/components/RecentTransactions';
+import { EditTransactionDialog } from '@/components/EditTransactionDialog';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useBudget } from '@/hooks/useBudget';
 import { useIsMobile } from '@/hooks/use-mobile';
+import type { Transaction } from '@/hooks/useTransactions';
 
 const Index = () => {
-  const { transactions, loading } = useTransactions();
+  const { transactions, loading, updateTransaction, deleteTransaction } = useTransactions();
   const { budget, loading: budgetLoading } = useBudget();
   const isMobile = useIsMobile();
 
@@ -48,6 +50,8 @@ const Index = () => {
     
     return { income, expenses, overallBudget, budgetUsedPercent, isOverBudget, overBudgetAmount };
   }, [currentMonthTransactions, budget.overallBudget]);
+
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
   const [greeting, setGreeting] = useState('');
 
@@ -116,7 +120,11 @@ const Index = () => {
           {/* Left Column */}
           <div className="space-y-6">
             <SpendingPieChart transactions={currentMonthTransactions} />
-            <RecentTransactions transactions={currentMonthTransactions} loading={loading} />
+            <RecentTransactions
+              transactions={currentMonthTransactions}
+              loading={loading}
+              onTransactionClick={(t) => setEditingTransaction(t)}
+            />
           </div>
 
           {/* Right Column */}
@@ -126,6 +134,16 @@ const Index = () => {
           </div>
         </div>
       </div>
+
+      {editingTransaction && (
+        <EditTransactionDialog
+          open={!!editingTransaction}
+          onOpenChange={(open) => { if (!open) setEditingTransaction(null); }}
+          transaction={editingTransaction}
+          onUpdate={updateTransaction}
+          onDelete={deleteTransaction}
+        />
+      )}
     </div>
   );
 };

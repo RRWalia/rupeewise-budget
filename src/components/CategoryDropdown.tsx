@@ -8,7 +8,7 @@ interface CategoryDropdownProps {
   categories: readonly Category[];
   value: Category | undefined;
   onChange: (value: Category) => void;
-  suggestion: AISuggestion | null;
+  suggestion?: AISuggestion | null;
   error?: string;
 }
 
