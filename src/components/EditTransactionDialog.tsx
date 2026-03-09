@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react';
-import { IndianRupee, Calendar, MessageSquare, Sparkles, Loader2, AlertCircle, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { IndianRupee, Calendar, MessageSquare, AlertCircle, Trash2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
