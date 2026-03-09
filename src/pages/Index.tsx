@@ -51,6 +51,8 @@ const Index = () => {
     return { income, expenses, overallBudget, budgetUsedPercent, isOverBudget, overBudgetAmount };
   }, [currentMonthTransactions, budget.overallBudget]);
 
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+
   const [greeting, setGreeting] = useState('');
 
   useEffect(() => {
