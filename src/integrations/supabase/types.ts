@@ -77,6 +77,44 @@ export type Database = {
         }
         Relationships: []
       }
+      transaction_history: {
+        Row: {
+          edited_at: string
+          field_name: string
+          id: string
+          new_value: string | null
+          old_value: string | null
+          transaction_id: string
+          user_id: string
+        }
+        Insert: {
+          edited_at?: string
+          field_name: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          transaction_id: string
+          user_id: string
+        }
+        Update: {
+          edited_at?: string
+          field_name?: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          transaction_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transaction_history_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transactions: {
         Row: {
           amount: number
@@ -87,6 +125,7 @@ export type Database = {
           note: string | null
           payment_mode: string
           type: string
+          updated_at: string | null
           user_id: string | null
         }
         Insert: {
@@ -98,6 +137,7 @@ export type Database = {
           note?: string | null
           payment_mode?: string
           type: string
+          updated_at?: string | null
           user_id?: string | null
         }
         Update: {
@@ -109,6 +149,7 @@ export type Database = {
           note?: string | null
           payment_mode?: string
           type?: string
+          updated_at?: string | null
           user_id?: string | null
         }
         Relationships: []
