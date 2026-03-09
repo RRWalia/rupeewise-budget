@@ -76,7 +76,12 @@ export function RecentTransactions({ transactions, loading, onTransactionClick }
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.7 + index * 0.05 }}
-              className="flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-secondary/50"
+              className="flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-secondary/50 cursor-pointer group"
+              onClick={() => onTransactionClick?.(transaction)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === 'Enter') onTransactionClick?.(transaction); }}
+            >
             >
               <div 
                 className="flex h-10 w-10 items-center justify-center rounded-xl text-lg"
