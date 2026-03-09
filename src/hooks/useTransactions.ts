@@ -11,6 +11,7 @@ export interface Transaction {
   note?: string;
   type: 'income' | 'expense';
   created_at: string;
+  updated_at?: string | null;
   user_id?: string;
 }
 
