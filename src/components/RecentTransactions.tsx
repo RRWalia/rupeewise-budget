@@ -10,7 +10,7 @@ interface RecentTransactionsProps {
   onTransactionClick?: (transaction: Transaction) => void;
 }
 
-export function RecentTransactions({ transactions, loading }: RecentTransactionsProps) {
+export function RecentTransactions({ transactions, loading, onTransactionClick }: RecentTransactionsProps) {
   const recentTransactions = transactions.slice(0, 8);
 
   const formatCurrency = (value: number) => {
