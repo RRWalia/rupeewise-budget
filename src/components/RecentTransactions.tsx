@@ -115,7 +115,7 @@ export function RecentTransactions({ transactions, loading, onTransactionClick }
                 </p>
               </div>
 
-              <Pencil className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+              <Pencil className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50 group-hover:text-primary transition-colors" />
             </motion.div>
           ))}
         </div>
