@@ -5,12 +5,14 @@ import { SpendingPieChart } from '@/components/SpendingPieChart';
 import { SavingsTrendCard } from '@/components/SavingsTrendCard';
 import { AIInsightsCard } from '@/components/AIInsightsCard';
 import { RecentTransactions } from '@/components/RecentTransactions';
+import { EditTransactionDialog } from '@/components/EditTransactionDialog';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useBudget } from '@/hooks/useBudget';
 import { useIsMobile } from '@/hooks/use-mobile';
+import type { Transaction } from '@/hooks/useTransactions';
 
 const Index = () => {
-  const { transactions, loading } = useTransactions();
+  const { transactions, loading, updateTransaction, deleteTransaction } = useTransactions();
   const { budget, loading: budgetLoading } = useBudget();
   const isMobile = useIsMobile();
 
