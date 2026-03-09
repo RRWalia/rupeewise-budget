@@ -120,7 +120,11 @@ const Index = () => {
           {/* Left Column */}
           <div className="space-y-6">
             <SpendingPieChart transactions={currentMonthTransactions} />
-            <RecentTransactions transactions={currentMonthTransactions} loading={loading} />
+            <RecentTransactions
+              transactions={currentMonthTransactions}
+              loading={loading}
+              onTransactionClick={(t) => setEditingTransaction(t)}
+            />
           </div>
 
           {/* Right Column */}
