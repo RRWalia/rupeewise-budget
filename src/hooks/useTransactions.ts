@@ -79,5 +79,90 @@ export function useTransactions() {
     fetchTransactions();
   }, [fetchTransactions]);
 
-  return { transactions, loading, addTransaction, refetch: fetchTransactions };
+  const updateTransaction = async (
+    id: string,
+    updates: Partial<Pick<Transaction, 'amount' | 'date' | 'category' | 'payment_mode' | 'note'>>
+  ) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Session expired. Please sign in again.');
+
+      // Get current transaction for audit trail
+      const current = transactions.find(t => t.id === id);
+      if (!current) throw new Error('Transaction not found');
+
+      // Build audit entries
+      const historyEntries: { transaction_id: string; user_id: string; field_name: string; old_value: string; new_value: string }[] = [];
+      for (const [key, newVal] of Object.entries(updates)) {
+        const oldVal = String((current as any)[key] ?? '');
+        const newValStr = String(newVal ?? '');
+        if (oldVal !== newValStr) {
+          historyEntries.push({
+            transaction_id: id,
+            user_id: user.id,
+            field_name: key,
+            old_value: oldVal,
+            new_value: newValStr,
+          });
+        }
+      }
+
+      if (historyEntries.length === 0) {
+        return { success: true, data: current };
+      }
+
+      // Update transaction
+      const { data, error } = await supabase
+        .from('transactions')
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Log edit history
+      if (historyEntries.length > 0) {
+        await supabase.from('transaction_history').insert(historyEntries);
+      }
+
+      const typedData = { ...data, type: data.type as 'income' | 'expense' };
+      setTransactions(prev => prev.map(t => t.id === id ? typedData : t));
+      return { success: true, data: typedData };
+    } catch (error) {
+      console.error('Error updating transaction:', error);
+      const message = error instanceof Error ? error.message : 'Failed to update transaction';
+      toast({ title: 'Error', description: message, variant: 'destructive' });
+      return { success: false, error, message };
+    }
+  };
+
+  const deleteTransaction = async (id: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Session expired. Please sign in again.');
+
+      const { error } = await supabase
+        .from('transactions')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      setTransactions(prev => prev.filter(t => t.id !== id));
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting transaction:', error);
+      const message = error instanceof Error ? error.message : 'Failed to delete transaction';
+      toast({ title: 'Error', description: message, variant: 'destructive' });
+      return { success: false, error, message };
+    }
+  };
+
+  useEffect(() => {
+    fetchTransactions();
+  }, [fetchTransactions]);
+
+  return { transactions, loading, addTransaction, updateTransaction, deleteTransaction, refetch: fetchTransactions };
 }
