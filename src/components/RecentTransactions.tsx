@@ -115,6 +115,8 @@ export function RecentTransactions({ transactions, loading, onTransactionClick }
                   {transaction.category}
                 </p>
               </div>
+
+              <Pencil className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
             </motion.div>
           ))}
         </div>
