@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { EXPENSE_CATEGORIES, CATEGORY_ICONS, CATEGORY_DISPLAY_NAMES, type Category } from '@/lib/mockData';
-import { useTransactions } from '@/hooks/useTransactions';
+import { useSharedTransactions } from '@/contexts/TransactionsContext';
 import { useBudget } from '@/hooks/useBudget';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
