@@ -129,7 +129,7 @@ export function useTransactions() {
       }
 
       const typedData = { ...data, type: data.type as 'income' | 'expense' };
-      setTransactions(prev => prev.map(t => t.id === id ? typedData : t));
+      await fetchTransactions();
       return { success: true, data: typedData };
     } catch (error) {
       console.error('Error updating transaction:', error);
