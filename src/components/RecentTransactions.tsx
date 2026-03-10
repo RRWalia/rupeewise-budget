@@ -60,9 +60,14 @@ export function RecentTransactions({ transactions, loading, onTransactionClick }
         <h3 className="font-display text-lg font-semibold text-card-foreground">
           Recent Transactions
         </h3>
-        <button className="text-sm font-medium text-primary hover:underline">
-          View all
-        </button>
+        {transactions.length > 8 && (
+          <button
+            className="text-sm font-medium text-primary hover:underline"
+            onClick={() => setExpanded(prev => !prev)}
+          >
+            {expanded ? 'Show less' : 'View all'}
+          </button>
+        )}
       </div>
 
       {recentTransactions.length === 0 ? (
