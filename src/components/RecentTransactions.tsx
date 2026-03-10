@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowUpRight, ArrowDownRight, Pencil } from 'lucide-react';
 import { CATEGORY_ICONS, CATEGORY_COLORS, type Category } from '@/lib/mockData';
@@ -11,7 +12,8 @@ interface RecentTransactionsProps {
 }
 
 export function RecentTransactions({ transactions, loading, onTransactionClick }: RecentTransactionsProps) {
-  const recentTransactions = transactions.slice(0, 8);
+  const [expanded, setExpanded] = useState(false);
+  const recentTransactions = expanded ? transactions : transactions.slice(0, 8);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -58,9 +60,14 @@ export function RecentTransactions({ transactions, loading, onTransactionClick }
         <h3 className="font-display text-lg font-semibold text-card-foreground">
           Recent Transactions
         </h3>
-        <button className="text-sm font-medium text-primary hover:underline">
-          View all
-        </button>
+        {transactions.length > 8 && (
+          <button
+            className="text-sm font-medium text-primary hover:underline"
+            onClick={() => setExpanded(prev => !prev)}
+          >
+            {expanded ? 'Show less' : 'View all'}
+          </button>
+        )}
       </div>
 
       {recentTransactions.length === 0 ? (
