@@ -61,7 +61,8 @@ export function useTransactions() {
       if (error) throw error;
       
       const typedData = { ...data, type: data.type as 'income' | 'expense' };
-      setTransactions(prev => [typedData, ...prev]);
+      // Force a full refetch to ensure all components get fresh data
+      await fetchTransactions();
       return { success: true, data: typedData };
     } catch (error) {
       console.error('Error adding transaction:', error);
@@ -128,7 +129,7 @@ export function useTransactions() {
       }
 
       const typedData = { ...data, type: data.type as 'income' | 'expense' };
-      setTransactions(prev => prev.map(t => t.id === id ? typedData : t));
+      await fetchTransactions();
       return { success: true, data: typedData };
     } catch (error) {
       console.error('Error updating transaction:', error);
@@ -150,7 +151,7 @@ export function useTransactions() {
         .eq('user_id', user.id);
 
       if (error) throw error;
-      setTransactions(prev => prev.filter(t => t.id !== id));
+      await fetchTransactions();
       return { success: true };
     } catch (error) {
       console.error('Error deleting transaction:', error);
