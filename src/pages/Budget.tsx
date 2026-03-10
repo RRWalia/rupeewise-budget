@@ -14,7 +14,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 
 const Budget = () => {
-  const { transactions } = useTransactions();
+  const { transactions } = useSharedTransactions();
   const { budget, loading, saving, saveBudget } = useBudget();
   const isMobile = useIsMobile();
   
