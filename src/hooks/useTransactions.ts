@@ -160,8 +160,22 @@ export function useTransactions() {
     }
   };
 
+  // Realtime subscription: auto-refresh on any DB change
   useEffect(() => {
-    fetchTransactions();
+    const channel = supabase
+      .channel('transactions-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'transactions' },
+        () => {
+          fetchTransactions();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [fetchTransactions]);
 
   return { transactions, loading, addTransaction, updateTransaction, deleteTransaction, refetch: fetchTransactions };
