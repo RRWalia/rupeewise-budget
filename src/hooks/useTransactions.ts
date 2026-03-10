@@ -61,7 +61,8 @@ export function useTransactions() {
       if (error) throw error;
       
       const typedData = { ...data, type: data.type as 'income' | 'expense' };
-      setTransactions(prev => [typedData, ...prev]);
+      // Force a full refetch to ensure all components get fresh data
+      await fetchTransactions();
       return { success: true, data: typedData };
     } catch (error) {
       console.error('Error adding transaction:', error);
