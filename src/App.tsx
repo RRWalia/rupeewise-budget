@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthGuard } from "@/components/AuthGuard";
 import { AppLayout } from "@/components/AppLayout";
+import { TransactionsProvider } from "@/contexts/TransactionsContext";
 import Index from "./pages/Index";
 import Budget from "./pages/Budget";
 import NotFound from "./pages/NotFound";
@@ -18,13 +19,15 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthGuard>
-          <AppLayout>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/budget" element={<Budget />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </AppLayout>
+          <TransactionsProvider>
+            <AppLayout>
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/budget" element={<Budget />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </AppLayout>
+          </TransactionsProvider>
         </AuthGuard>
       </BrowserRouter>
     </TooltipProvider>

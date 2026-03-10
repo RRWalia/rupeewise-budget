@@ -3,7 +3,7 @@ import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { BottomNav } from '@/components/BottomNav';
 import { AddTransactionDialog } from '@/components/AddTransactionDialog';
-import { useTransactions } from '@/hooks/useTransactions';
+import { useSharedTransactions } from '@/contexts/TransactionsContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 interface AppLayoutProps {
@@ -13,7 +13,7 @@ interface AppLayoutProps {
 export function AppLayout({ children }: AppLayoutProps) {
   const isMobile = useIsMobile();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const { addTransaction } = useTransactions();
+  const { addTransaction } = useSharedTransactions();
   const [lastTransactionType, setLastTransactionType] = useState<'income' | 'expense'>('expense');
 
   const handleAddTransaction = async (transaction: Parameters<typeof addTransaction>[0]) => {
