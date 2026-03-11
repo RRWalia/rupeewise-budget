@@ -61,8 +61,15 @@ export function useTransactions() {
       if (error) throw error;
       
       const typedData = { ...data, type: data.type as 'income' | 'expense' };
-      // Force a full refetch to ensure all components get fresh data
-      await fetchTransactions();
+      // Optimistically update local state immediately with the returned data
+      setTransactions(prev => {
+        const updated = [typedData, ...prev];
+        // Sort by date descending
+        updated.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        return updated;
+      });
+      // Also refetch in background for consistency
+      fetchTransactions();
       return { success: true, data: typedData };
     } catch (error) {
       console.error('Error adding transaction:', error);
@@ -129,7 +136,9 @@ export function useTransactions() {
       }
 
       const typedData = { ...data, type: data.type as 'income' | 'expense' };
-      await fetchTransactions();
+      // Optimistic update
+      setTransactions(prev => prev.map(t => t.id === id ? typedData : t));
+      fetchTransactions();
       return { success: true, data: typedData };
     } catch (error) {
       console.error('Error updating transaction:', error);
@@ -151,7 +160,9 @@ export function useTransactions() {
         .eq('user_id', user.id);
 
       if (error) throw error;
-      await fetchTransactions();
+      // Optimistic removal
+      setTransactions(prev => prev.filter(t => t.id !== id));
+      fetchTransactions();
       return { success: true };
     } catch (error) {
       console.error('Error deleting transaction:', error);
