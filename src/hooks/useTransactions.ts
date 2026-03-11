@@ -160,7 +160,9 @@ export function useTransactions() {
         .eq('user_id', user.id);
 
       if (error) throw error;
-      await fetchTransactions();
+      // Optimistic removal
+      setTransactions(prev => prev.filter(t => t.id !== id));
+      fetchTransactions();
       return { success: true };
     } catch (error) {
       console.error('Error deleting transaction:', error);
