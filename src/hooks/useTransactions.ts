@@ -161,8 +161,10 @@ export function useTransactions() {
     }
   };
 
-  // Realtime subscription: auto-refresh on any DB change
+  // Realtime subscription + polling fallback for reliability
   useEffect(() => {
+    let pollTimer: ReturnType<typeof setInterval>;
+
     const channel = supabase
       .channel('transactions-realtime')
       .on(
@@ -172,9 +174,21 @@ export function useTransactions() {
           fetchTransactions();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Realtime channel status:', status);
+        // If realtime fails, fall back to polling every 3s
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          if (!pollTimer) {
+            pollTimer = setInterval(fetchTransactions, 3000);
+          }
+        }
+      });
+
+    // Always poll as a safety net (every 5s), in case realtime silently drops events
+    pollTimer = setInterval(fetchTransactions, 5000);
 
     return () => {
+      clearInterval(pollTimer);
       supabase.removeChannel(channel);
     };
   }, [fetchTransactions]);
