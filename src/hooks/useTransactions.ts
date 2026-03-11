@@ -136,7 +136,9 @@ export function useTransactions() {
       }
 
       const typedData = { ...data, type: data.type as 'income' | 'expense' };
-      await fetchTransactions();
+      // Optimistic update
+      setTransactions(prev => prev.map(t => t.id === id ? typedData : t));
+      fetchTransactions();
       return { success: true, data: typedData };
     } catch (error) {
       console.error('Error updating transaction:', error);
