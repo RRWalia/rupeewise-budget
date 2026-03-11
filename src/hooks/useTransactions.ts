@@ -61,8 +61,15 @@ export function useTransactions() {
       if (error) throw error;
       
       const typedData = { ...data, type: data.type as 'income' | 'expense' };
-      // Force a full refetch to ensure all components get fresh data
-      await fetchTransactions();
+      // Optimistically update local state immediately with the returned data
+      setTransactions(prev => {
+        const updated = [typedData, ...prev];
+        // Sort by date descending
+        updated.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        return updated;
+      });
+      // Also refetch in background for consistency
+      fetchTransactions();
       return { success: true, data: typedData };
     } catch (error) {
       console.error('Error adding transaction:', error);
