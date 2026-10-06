@@ -8,6 +8,20 @@ interface SpendingPieChartProps {
   transactions: Transaction[];
 }
 
+interface SpendingTooltipPayload {
+  payload: {
+    icon: string;
+    category: string;
+    amount: number;
+    percentage: number;
+  };
+}
+
+interface SpendingTooltipProps {
+  active?: boolean;
+  payload?: SpendingTooltipPayload[];
+}
+
 export function SpendingPieChart({ transactions }: SpendingPieChartProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
@@ -40,7 +54,7 @@ export function SpendingPieChart({ transactions }: SpendingPieChartProps) {
     }).format(value);
   };
 
-  const CustomTooltip = ({ active, payload }: any) => {
+  const CustomTooltip = ({ active, payload }: SpendingTooltipProps) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (

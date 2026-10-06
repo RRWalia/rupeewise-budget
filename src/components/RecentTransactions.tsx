@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { ArrowUpRight, ArrowDownRight, Pencil } from 'lucide-react';
 import { CATEGORY_ICONS, CATEGORY_COLORS, type Category } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
+import { parseDateOnlyLocal } from '@/lib/date';
 import type { Transaction } from '@/hooks/useTransactions';
 
 interface RecentTransactionsProps {
@@ -24,7 +25,7 @@ export function RecentTransactions({ transactions, loading, onTransactionClick }
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    const date = parseDateOnlyLocal(dateString);
     return date.toLocaleDateString('en-IN', { 
       day: 'numeric', 
       month: 'short' 

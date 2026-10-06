@@ -1,20 +1,25 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Lightbulb, AlertCircle, TrendingDown, Zap, Loader2, Info, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useAIInsights, type AIInsight } from '@/hooks/useAIInsights';
+import { buildInsightsFingerprint, useAIInsights, type AIInsight } from '@/hooks/useAIInsights';
 import type { Transaction } from '@/hooks/useTransactions';
 
 interface AIInsightsCardProps {
   transactions: Transaction[];
+  monthKey: string;
 }
 
-export function AIInsightsCard({ transactions }: AIInsightsCardProps) {
-  const { insights, loading, fetchInsights } = useAIInsights();
+export function AIInsightsCard({ transactions, monthKey }: AIInsightsCardProps) {
+  const { insights, loading, error, fetchInsights } = useAIInsights();
+  const fingerprint = useMemo(
+    () => buildInsightsFingerprint(transactions, monthKey),
+    [transactions, monthKey]
+  );
 
   useEffect(() => {
-    fetchInsights(transactions);
-  }, [transactions]);
+    fetchInsights(transactions, fingerprint);
+  }, [fetchInsights, fingerprint, transactions]);
 
   const getIcon = (type: AIInsight['type']) => {
     switch (type) {
@@ -72,7 +77,7 @@ export function AIInsightsCard({ transactions }: AIInsightsCardProps) {
                 beta
               </span>
             </div>
-            <p className="text-xs text-muted-foreground">Weekly spending analysis</p>
+            <p className="text-xs text-muted-foreground">Monthly spending analysis</p>
           </div>
         </div>
       </div>
@@ -81,9 +86,15 @@ export function AIInsightsCard({ transactions }: AIInsightsCardProps) {
       <div className="mb-4 flex items-start gap-2 rounded-lg bg-muted/50 px-3 py-2">
         <Info className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" />
         <p className="text-[11px] leading-relaxed text-muted-foreground">
-          Suggestions may not be perfect—always review before acting.
+          Suggestions may not be perfect. AI uses this month's transaction data to generate tips.
         </p>
       </div>
+
+      {error && !loading && (
+        <div className="mb-3 rounded-lg border border-warning/20 bg-warning/10 px-3 py-2 text-xs text-warning">
+          Showing fallback insights: {error}
+        </div>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center py-8">
@@ -98,7 +109,7 @@ export function AIInsightsCard({ transactions }: AIInsightsCardProps) {
             
             return (
               <motion.div
-                key={index}
+                key={`${insight.title}-${index}`}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.1 + index * 0.1 }}
@@ -133,8 +144,12 @@ export function AIInsightsCard({ transactions }: AIInsightsCardProps) {
 
       {/* Actionable CTA */}
       {!loading && insights.length > 0 && (
-        <button className="mt-4 flex w-full items-center justify-center gap-1 rounded-lg bg-primary/5 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/10">
-          View tips for saving this week
+        <button
+          type="button"
+          onClick={() => fetchInsights(transactions, fingerprint, { force: true })}
+          className="mt-4 flex w-full items-center justify-center gap-1 rounded-lg bg-primary/5 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/10"
+        >
+          Refresh AI tips
           <ChevronRight className="h-4 w-4" />
         </button>
       )}

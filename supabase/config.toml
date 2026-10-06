@@ -1,7 +1,7 @@
 project_id = "cuvhhjkhebfpnrixmxxq"
 
 [functions.ai-insights]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ai-autocomplete]
-verify_jwt = false
+verify_jwt = true

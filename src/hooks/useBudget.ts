@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { Category } from '@/lib/mockData';
+import { formatMonthLabel, getCurrentMonthKey } from '@/lib/date';
+import type { Tables } from '@/integrations/supabase/types';
 
 export interface BudgetData {
   monthlyIncome: string;
@@ -11,28 +13,35 @@ export interface BudgetData {
 }
 
 const DEFAULT_BUDGET: BudgetData = {
-  monthlyIncome: '75000',
-  overallBudget: '60000',
-  savingsGoal: '15000',
+  monthlyIncome: '0',
+  overallBudget: '0',
+  savingsGoal: '0',
   categoryBudgets: {
-    Grocery: '8000',
-    Housing: '15000',
-    'Loans & EMIs': '10000',
-    'Tuition & Education': '5000',
-    Travel: '5000',
-    Shopping: '5000',
-    Entertainment: '3000',
-    Medical: '3000',
-    Personal: '2000',
-    Health: '2000',
+    Grocery: '0',
+    Housing: '0',
+    'Loans & EMIs': '0',
+    'Tuition & Education': '0',
+    Travel: '0',
+    Shopping: '0',
+    Entertainment: '0',
+    Medical: '0',
+    Personal: '0',
+    Health: '0',
     Salary: '0',
     Freelance: '0',
     Other: '0',
   },
 };
 
-// Map category names to DB column names
-const categoryToColumn: Record<Category, string> = {
+type BudgetRow = Tables<'budgets'>;
+type BudgetCategoryColumn = keyof Pick<BudgetRow,
+  'grocery' | 'housing' | 'loans_emis' | 'tuition_education' | 'travel' |
+  'shopping' | 'entertainment' | 'medical' | 'personal' | 'health'
+>;
+
+// Map budgeted expense category names to DB column names.
+// Income categories are valid transaction categories, but they are not budget-spend columns.
+const categoryToColumn: Partial<Record<Category, BudgetCategoryColumn>> = {
   Grocery: 'grocery',
   Housing: 'housing',
   'Loans & EMIs': 'loans_emis',
@@ -43,15 +52,12 @@ const categoryToColumn: Record<Category, string> = {
   Medical: 'medical',
   Personal: 'personal',
   Health: 'health',
-  Salary: 'salary',
-  Freelance: 'freelance',
-  Other: 'other',
 };
 
 // Reverse map for DB to category
-const columnToCategory: Record<string, Category> = Object.entries(categoryToColumn).reduce(
+const columnToCategory = Object.entries(categoryToColumn).reduce(
   (acc, [cat, col]) => ({ ...acc, [col]: cat as Category }),
-  {} as Record<string, Category>
+  {} as Record<BudgetCategoryColumn, Category>
 );
 
 export function useBudget() {
@@ -59,12 +65,6 @@ export function useBudget() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
-
-  // Get current month key (e.g., "2026-01")
-  const getCurrentMonthKey = () => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  };
 
   const monthKey = getCurrentMonthKey();
 
@@ -89,9 +89,10 @@ export function useBudget() {
       if (data) {
         // Map DB row to BudgetData
         const categoryBudgets: Record<Category, string> = { ...DEFAULT_BUDGET.categoryBudgets };
-        Object.entries(columnToCategory).forEach(([col, cat]) => {
-          if (data[col] !== undefined) {
-            categoryBudgets[cat] = String(data[col]);
+        (Object.entries(columnToCategory) as Array<[BudgetCategoryColumn, Category]>).forEach(([col, cat]) => {
+          const value = data[col];
+          if (value !== undefined) {
+            categoryBudgets[cat] = String(value);
           }
         });
 
@@ -150,7 +151,7 @@ export function useBudget() {
 
       setBudget(budgetData);
 
-      const monthName = new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+      const monthName = formatMonthLabel(monthKey);
       toast({
         title: 'Budget saved!',
         description: `Your budget for ${monthName} has been saved.`,

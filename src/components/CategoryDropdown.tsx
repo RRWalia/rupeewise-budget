@@ -13,6 +13,9 @@ interface CategoryDropdownProps {
 }
 
 export function CategoryDropdown({ categories, value, onChange, suggestion, error }: CategoryDropdownProps) {
+  const suggestedCategory = suggestion?.category as Category | undefined;
+  const hasValidSuggestion = !!suggestedCategory && categories.includes(suggestedCategory);
+
   return (
     <div className="space-y-2">
       <Label>Category</Label>
@@ -28,7 +31,7 @@ export function CategoryDropdown({ categories, value, onChange, suggestion, erro
           className={cn(
             'flex h-10 w-full appearance-none rounded-md border bg-background px-3 py-2 pr-8 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
             error ? 'border-destructive ring-destructive/30' : 'border-input',
-            suggestion?.category === value && value && 'ring-2 ring-primary/30',
+            hasValidSuggestion && suggestion?.category === value && value && 'ring-2 ring-primary/30',
             !value && 'text-muted-foreground'
           )}
           aria-invalid={!!error}
@@ -48,14 +51,14 @@ export function CategoryDropdown({ categories, value, onChange, suggestion, erro
       {error && (
         <p id="category-error" className="text-xs text-destructive">{error}</p>
       )}
-      {suggestion?.category && !error && (
+      {hasValidSuggestion && !error && (
         <button
           type="button"
-          onClick={() => onChange(suggestion.category as Category)}
+          onClick={() => onChange(suggestedCategory)}
           className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
         >
           <Sparkles className="h-3 w-3 text-primary" />
-          AI suggests: {suggestion.category}
+          AI suggests: {suggestedCategory}
         </button>
       )}
     </div>

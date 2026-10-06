@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { IndianRupee, Mail, Lock, Eye, EyeOff, Loader2, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 const PASSWORD_RULES = [
   { label: 'At least 8 characters', test: (p: string) => p.length >= 8 },
@@ -23,11 +24,24 @@ const Auth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [touched, setTouched] = useState<{ email?: boolean; password?: boolean }>({});
-  const { signIn, signUp, signInWithGoogle, resetPassword } = useAuth();
+  const { signIn, signUp, signInWithGoogle, resetPassword, updatePassword, isAuthenticated, loading: authLoading } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const isResetPassword = location.pathname === '/reset-password' ||
+    location.hash.includes('type=recovery') ||
+    location.search.includes('type=recovery');
+
+  useEffect(() => {
+    if (!authLoading && isAuthenticated && !isResetPassword) {
+      navigate('/', { replace: true });
+    }
+  }, [authLoading, isAuthenticated, isResetPassword, navigate]);
 
   const emailError = useMemo(() => {
     if (!touched.email || !email) return '';
@@ -119,6 +133,41 @@ const Auth = () => {
     }
   }, [signInWithGoogle, toast]);
 
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTouched({ password: true });
+
+    if (!password) {
+      toast({ title: 'Missing password', description: 'Please enter a new password', variant: 'destructive' });
+      return;
+    }
+
+    if (password.length < 8 || passwordStrength.level === 'weak') {
+      toast({ title: 'Choose a stronger password', description: 'Use at least 8 characters with letters, numbers, and a symbol.', variant: 'destructive' });
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      toast({ title: 'Passwords do not match', description: 'Please confirm the same password twice.', variant: 'destructive' });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await updatePassword(password);
+      if (error) {
+        toast({ title: 'Could not update password', description: error.message, variant: 'destructive' });
+      } else {
+        toast({ title: 'Password updated', description: 'You can continue using RupeeWise.' });
+        setPassword('');
+        setConfirmPassword('');
+        navigate('/', { replace: true });
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleGoogleSignIn = async () => {
     // Google blocks OAuth when triggered inside embedded previews.
     // Move users to a standalone tab first, then they can click Google there.
@@ -142,6 +191,93 @@ const Auth = () => {
 
     await runGoogleSignIn();
   };
+
+
+  // Reset password view opened from Supabase recovery links
+  if (isResetPassword) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8 text-center">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
+              <IndianRupee className="h-6 w-6 text-primary-foreground" />
+            </div>
+          </div>
+          <h1 className="font-display text-2xl font-bold text-foreground">Create New Password</h1>
+          <p className="text-sm text-muted-foreground">Choose a strong password for your RupeeWise account</p>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="w-full max-w-sm">
+          <Card>
+            <CardContent className="pt-6">
+              <form onSubmit={handleUpdatePassword} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="new-password">New Password</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="new-password"
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="pl-10 pr-10"
+                      autoComplete="new-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {password.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
+                        <div className={cn("h-full rounded-full transition-all duration-300", passwordStrength.color)} style={{ width: `${passwordStrength.percent}%` }} />
+                      </div>
+                      <span className="text-xs font-medium text-muted-foreground capitalize">{passwordStrength.level}</span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-password">Confirm Password</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="confirm-password"
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="••••••••"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="pl-10"
+                      autoComplete="new-password"
+                    />
+                  </div>
+                </div>
+
+                <Button type="submit" className="w-full" size="lg" disabled={loading || authLoading}>
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Update Password
+                </Button>
+              </form>
+              <div className="mt-4 text-center">
+                <button type="button" onClick={() => navigate('/auth')} className="text-sm text-primary hover:underline font-medium">
+                  Back to sign in
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
+    );
+  }
 
   // Forgot password view
   if (isForgotPassword) {
