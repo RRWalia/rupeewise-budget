@@ -3,8 +3,14 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 import { brokeredPreviewStorage } from './previewAuthStorage';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+// These are public (publishable) values — safe to ship in the browser bundle.
+// The env vars take precedence; the constants guarantee the published build
+// works even if the build-time env injection is missing.
+const SUPABASE_URL =
+  import.meta.env.VITE_SUPABASE_URL ?? 'https://cuvhhjkhebfpnrixmxxq.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY =
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ??
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN1dmhoamtoZWJmcG5yaXhteHhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MTk4NDEsImV4cCI6MjA4NDE5NTg0MX0.yPCrpoXVfCnIb5XjlaUg5-IAe1ePsuUuFSU1TJssUMA';
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
