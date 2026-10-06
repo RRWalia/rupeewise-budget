@@ -50,7 +50,7 @@ export function AppSidebar({ onAddClick }: AppSidebarProps) {
           {!collapsed && (
             <div>
               <h1 className="font-display text-lg font-bold tracking-tight text-foreground">
-                RupeeWise
+                RupeeWise<span className="sr-only"> — Smart Finance Tracker</span>
               </h1>
               <p className="text-[10px] text-muted-foreground leading-none">
                 Smart Finance Tracker

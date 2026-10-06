@@ -46,7 +46,7 @@ export function Header() {
           </div>
           <div>
             <h1 className="font-display text-xl font-bold tracking-tight text-foreground">
-              RupeeWise
+              RupeeWise<span className="sr-only"> — Smart Finance Tracker</span>
             </h1>
             <p className="text-[10px] text-muted-foreground leading-none">
               {currentMonth}
@@ -57,7 +57,7 @@ export function Header() {
         <div className="flex items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary text-secondary-foreground transition-colors hover:bg-secondary/80">
+              <button aria-label="Open profile menu" className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary text-secondary-foreground transition-colors hover:bg-secondary/80">
                 <User className="h-5 w-5" />
               </button>
             </DropdownMenuTrigger>

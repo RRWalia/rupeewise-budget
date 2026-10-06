@@ -11,6 +11,7 @@ import Auth from "./pages/Auth";
 import Index from "./pages/Index";
 import Budget from "./pages/Budget";
 import NotFound from "./pages/NotFound";
+import { RouteMeta } from "@/components/RouteMeta";
 
 const queryClient = new QueryClient();
 
@@ -35,6 +36,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <RouteMeta />
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/reset-password" element={<Auth />} />

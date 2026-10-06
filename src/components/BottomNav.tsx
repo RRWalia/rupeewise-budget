@@ -37,6 +37,7 @@ export function BottomNav({ onAddClick }: BottomNavProps) {
               whileHover={{ scale: 1.08 }}
               whileTap={{ scale: 0.95 }}
               onClick={onAddClick}
+              aria-label="Add transaction"
               className="relative -top-5 flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl ring-4 ring-background transition-shadow hover:shadow-2xl"
             >
               <Plus className="h-7 w-7" strokeWidth={2.5} />
