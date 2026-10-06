@@ -6,31 +6,43 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthGuard } from "@/components/AuthGuard";
 import { AppLayout } from "@/components/AppLayout";
 import { TransactionsProvider } from "@/contexts/TransactionsContext";
+import { AuthProvider } from "@/hooks/useAuth";
+import Auth from "./pages/Auth";
 import Index from "./pages/Index";
 import Budget from "./pages/Budget";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+const ProtectedApp = () => (
+  <AuthGuard>
+    <TransactionsProvider>
+      <AppLayout>
+        <Routes>
+          <Route path="/" element={<Index />} />
+          <Route path="/budget" element={<Budget />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </AppLayout>
+    </TransactionsProvider>
+  </AuthGuard>
+);
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthGuard>
-          <TransactionsProvider>
-            <AppLayout>
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/budget" element={<Budget />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </AppLayout>
-          </TransactionsProvider>
-        </AuthGuard>
-      </BrowserRouter>
-    </TooltipProvider>
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/reset-password" element={<Auth />} />
+            <Route path="/*" element={<ProtectedApp />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 

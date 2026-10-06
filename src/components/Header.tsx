@@ -9,15 +9,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
+import { formatMonthLabel, getCurrentMonthKey } from '@/lib/date';
 
 export function Header() {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
   
-  const currentMonth = new Date().toLocaleDateString('en-IN', { 
-    month: 'long', 
-    year: 'numeric' 
-  });
+  const currentMonth = formatMonthLabel(getCurrentMonthKey());
 
   const handleSignOut = async () => {
     const { error } = await signOut();

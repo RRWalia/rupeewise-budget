@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, type Category } from '@/lib/mockData';
 import { CategoryDropdown } from '@/components/CategoryDropdown';
 import { cn } from '@/lib/utils';
+import { addDaysLocal, getLocalDateInputValue } from '@/lib/date';
 import { useToast } from '@/hooks/use-toast';
 import type { Transaction } from '@/hooks/useTransactions';
 import {
@@ -58,13 +59,11 @@ export function EditTransactionDialog({ open, onOpenChange, transaction, onUpdat
   };
 
   const setDateToYesterday = () => {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    setDate(yesterday.toISOString().split('T')[0]);
+    setDate(getLocalDateInputValue(addDaysLocal(new Date(), -1)));
   };
 
   const setDateToToday = () => {
-    setDate(new Date().toISOString().split('T')[0]);
+    setDate(getLocalDateInputValue());
   };
 
   const validate = (): boolean => {
@@ -118,6 +117,9 @@ export function EditTransactionDialog({ open, onOpenChange, transaction, onUpdat
   const lastEdited = transaction.updated_at
     ? new Date(transaction.updated_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
     : null;
+
+  const todayInputValue = getLocalDateInputValue();
+  const yesterdayInputValue = getLocalDateInputValue(addDaysLocal(new Date(), -1));
 
   return (
     <>
@@ -182,13 +184,13 @@ export function EditTransactionDialog({ open, onOpenChange, transaction, onUpdat
                 <div className="flex gap-1">
                   <button type="button" onClick={setDateToToday} className={cn(
                     'rounded-lg border px-3 py-2 text-xs font-medium transition-colors',
-                    date === new Date().toISOString().split('T')[0]
+                    date === todayInputValue
                       ? 'border-primary bg-primary/10 text-primary'
                       : 'border-border text-muted-foreground hover:bg-secondary'
                   )}>Today</button>
                   <button type="button" onClick={setDateToYesterday} className={cn(
                     'rounded-lg border px-3 py-2 text-xs font-medium transition-colors',
-                    date === (() => { const y = new Date(); y.setDate(y.getDate() - 1); return y.toISOString().split('T')[0]; })()
+                    date === yesterdayInputValue
                       ? 'border-primary bg-primary/10 text-primary'
                       : 'border-border text-muted-foreground hover:bg-secondary'
                   )}>Yesterday</button>

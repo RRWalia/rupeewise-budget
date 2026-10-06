@@ -1,73 +1,65 @@
-# Welcome to your Lovable project
+# RupeeWise Budget
 
-## Project info
+RupeeWise is an INR-first personal finance tracker for Indian users. It helps users record income and expenses, track monthly budgets, review category spend, and get AI-assisted saving insights.
 
-**URL**: https://lovable.dev/projects/e5464fc0-28f0-4324-951d-9f2622353cd0
+## Stack
 
-## How can I edit this code?
+- Vite
+- React
+- TypeScript
+- Tailwind CSS
+- shadcn/Radix UI
+- Recharts
+- Supabase Auth, Postgres, Realtime, and Edge Functions
 
-There are several ways of editing your application.
+## Getting started
 
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/e5464fc0-28f0-4324-951d-9f2622353cd0) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+Use npm as the package manager for this repository.
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+npm ci
+cp .env.example .env
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Fill `.env` with your Supabase project values before using auth or data-backed features.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Scripts
 
-**Use GitHub Codespaces**
+```sh
+npm run dev        # local development server
+npm run build      # production build
+npm run lint       # eslint
+npm run typecheck  # TypeScript project check
+npm run test       # Vitest test suite
+npm run check      # lint + typecheck + test + build
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Environment variables
 
-## What technologies are used for this project?
+```sh
+VITE_SUPABASE_PROJECT_ID="your-supabase-project-id"
+VITE_SUPABASE_PUBLISHABLE_KEY="your-supabase-anon-key"
+VITE_SUPABASE_URL="https://your-project-id.supabase.co"
+```
 
-This project is built with:
+Supabase Edge Functions also require server-side secrets such as `LOVABLE_API_KEY`. Configure those in Supabase, not in frontend `.env` files.
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Supabase notes
 
-## How can I deploy this project?
+- Tables: `transactions`, `budgets`, `transaction_history`.
+- RLS policies scope user data by `auth.uid()`.
+- AI functions require authenticated JWTs.
+- `ALLOWED_ORIGINS` can be set for Edge Function CORS. If unset, local dev and the Lovable production domain are allowed.
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+## Quality gates
 
-## Can I connect a custom domain to my Lovable project?
+Before merging changes, run:
 
-Yes, you can!
+```sh
+npm ci
+npm run check
+npm audit --omit=dev
+```
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+`npm audit --omit=dev` is expected to pass with zero production vulnerabilities. Some remaining audit findings may be dev-toolchain-only until major upgrades such as Tailwind/Vite/Vitest are planned.

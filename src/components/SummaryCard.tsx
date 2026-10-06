@@ -12,6 +12,7 @@ interface SummaryCardProps {
   overBudgetAmount?: number;
   loading?: boolean;
   trend?: 'up' | 'down';
+  trendLabel?: string;
   delay?: number;
 }
 
@@ -25,6 +26,7 @@ export function SummaryCard({
   overBudgetAmount,
   loading,
   trend,
+  trendLabel,
   delay = 0 
 }: SummaryCardProps) {
   const formatCurrency = (value: number) => {
@@ -55,6 +57,13 @@ export function SummaryCard({
       case 'budget':
         return isOverBudget ? 'bg-expense/10 text-expense' : 'bg-primary/10 text-primary';
     }
+  };
+
+  const getTrendToneClass = () => {
+    if (!trend) return 'text-muted-foreground';
+    if (type === 'income') return trend === 'up' ? 'text-income' : 'text-expense';
+    if (type === 'expense') return trend === 'down' ? 'text-income' : 'text-expense';
+    return trend === 'up' ? 'text-income' : 'text-expense';
   };
 
   // Clamp progress bar to 100% max for visual display
@@ -135,18 +144,15 @@ export function SummaryCard({
         </div>
       )}
 
-      {trend && type !== 'budget' && amount > 0 && (
+      {trend && trendLabel && type !== 'budget' && amount > 0 && (
         <div className="mt-3 flex items-center gap-1">
           {trend === 'up' ? (
-            <TrendingUp className="h-3.5 w-3.5 text-income" />
+            <TrendingUp className={cn('h-3.5 w-3.5', getTrendToneClass())} />
           ) : (
-            <TrendingDown className="h-3.5 w-3.5 text-expense" />
+            <TrendingDown className={cn('h-3.5 w-3.5', getTrendToneClass())} />
           )}
-          <span className={cn(
-            'text-xs font-medium',
-            trend === 'up' ? 'text-income' : 'text-expense'
-          )}>
-            {trend === 'up' ? '+12%' : '-8%'} vs last month
+          <span className={cn('text-xs font-medium', getTrendToneClass())}>
+            {trendLabel}
           </span>
         </div>
       )}

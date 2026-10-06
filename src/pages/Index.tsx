@@ -10,46 +10,56 @@ import { useSharedTransactions } from '@/contexts/TransactionsContext';
 import { useBudget } from '@/hooks/useBudget';
 import { useIsMobile } from '@/hooks/use-mobile';
 import type { Transaction } from '@/hooks/useTransactions';
+import { formatMonthLabel, getCurrentMonthKey, getRelativeMonthKey } from '@/lib/date';
+import { calculateTotals, calculateTrend, filterTransactionsByMonth } from '@/lib/finance';
 
 const Index = () => {
   const { transactions, loading, updateTransaction, deleteTransaction } = useSharedTransactions();
   const { budget, loading: budgetLoading } = useBudget();
   const isMobile = useIsMobile();
 
-  const currentMonth = new Date().toLocaleDateString('en-IN', { 
-    month: 'long', 
-    year: 'numeric' 
-  });
+  const currentMonthKey = useMemo(() => getCurrentMonthKey(), []);
+  const previousMonthKey = useMemo(() => getRelativeMonthKey(currentMonthKey, -1), [currentMonthKey]);
+  const currentMonth = useMemo(() => formatMonthLabel(currentMonthKey), [currentMonthKey]);
 
-  const currentMonthKey = useMemo(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  }, []);
+  const currentMonthTransactions = useMemo(
+    () => filterTransactionsByMonth(transactions, currentMonthKey),
+    [transactions, currentMonthKey]
+  );
 
-  const currentMonthTransactions = useMemo(() => {
-    return transactions.filter(t => {
-      const txDate = new Date(t.date);
-      const txMonthKey = `${txDate.getFullYear()}-${String(txDate.getMonth() + 1).padStart(2, '0')}`;
-      return txMonthKey === currentMonthKey;
-    });
-  }, [transactions, currentMonthKey]);
+  const previousMonthTransactions = useMemo(
+    () => filterTransactionsByMonth(transactions, previousMonthKey),
+    [transactions, previousMonthKey]
+  );
 
-  const { income, expenses, overallBudget, budgetUsedPercent, isOverBudget, overBudgetAmount } = useMemo(() => {
-    const income = currentMonthTransactions
-      .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + Number(t.amount), 0);
-    
-    const expenses = currentMonthTransactions
-      .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + Number(t.amount), 0);
-    
+  const currentTotals = useMemo(
+    () => calculateTotals(currentMonthTransactions),
+    [currentMonthTransactions]
+  );
+
+  const previousTotals = useMemo(
+    () => calculateTotals(previousMonthTransactions),
+    [previousMonthTransactions]
+  );
+
+  const incomeTrend = useMemo(
+    () => calculateTrend(currentTotals.income, previousTotals.income),
+    [currentTotals.income, previousTotals.income]
+  );
+
+  const expenseTrend = useMemo(
+    () => calculateTrend(currentTotals.expenses, previousTotals.expenses),
+    [currentTotals.expenses, previousTotals.expenses]
+  );
+
+  const { overallBudget, budgetUsedPercent, isOverBudget, overBudgetAmount } = useMemo(() => {
     const overallBudget = Number(budget.overallBudget) || 0;
-    const budgetUsedPercent = overallBudget > 0 ? (expenses / overallBudget) * 100 : 0;
+    const budgetUsedPercent = overallBudget > 0 ? (currentTotals.expenses / overallBudget) * 100 : 0;
     const isOverBudget = budgetUsedPercent > 100;
-    const overBudgetAmount = isOverBudget ? expenses - overallBudget : 0;
-    
-    return { income, expenses, overallBudget, budgetUsedPercent, isOverBudget, overBudgetAmount };
-  }, [currentMonthTransactions, budget.overallBudget]);
+    const overBudgetAmount = isOverBudget ? currentTotals.expenses - overallBudget : 0;
+
+    return { overallBudget, budgetUsedPercent, isOverBudget, overBudgetAmount };
+  }, [budget.overallBudget, currentTotals.expenses]);
 
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
@@ -88,18 +98,20 @@ const Index = () => {
         <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <SummaryCard
             title="This month's Income"
-            amount={income}
+            amount={currentTotals.income}
             subtitle={currentMonth}
             type="income"
-            trend={income > 0 ? "up" : undefined}
+            trend={incomeTrend?.direction}
+            trendLabel={incomeTrend?.label}
             delay={0}
           />
           <SummaryCard
             title="This month's Expenses"
-            amount={expenses}
+            amount={currentTotals.expenses}
             subtitle={currentMonth}
             type="expense"
-            trend={expenses > 0 ? "down" : undefined}
+            trend={expenseTrend?.direction}
+            trendLabel={expenseTrend?.label}
             delay={0.1}
           />
           <SummaryCard
@@ -129,8 +141,8 @@ const Index = () => {
 
           {/* Right Column */}
           <div className="space-y-6">
-            <SavingsTrendCard transactions={currentMonthTransactions} />
-            <AIInsightsCard transactions={currentMonthTransactions} />
+            <SavingsTrendCard transactions={transactions} monthKey={currentMonthKey} />
+            <AIInsightsCard transactions={currentMonthTransactions} monthKey={currentMonthKey} />
           </div>
         </div>
       </div>

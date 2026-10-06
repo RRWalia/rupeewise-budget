@@ -12,10 +12,12 @@ import { useSharedTransactions } from '@/contexts/TransactionsContext';
 import { useBudget } from '@/hooks/useBudget';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
+import { formatMonthLabel } from '@/lib/date';
+import { calculateCategorySpending, filterTransactionsByMonth } from '@/lib/finance';
 
 const Budget = () => {
   const { transactions } = useSharedTransactions();
-  const { budget, loading, saving, saveBudget } = useBudget();
+  const { budget, loading, saving, saveBudget, monthKey } = useBudget();
   const isMobile = useIsMobile();
   
   const [monthlyIncome, setMonthlyIncome] = useState('');
@@ -36,15 +38,12 @@ const Budget = () => {
     }
   }, [loading, budget]);
 
-  const currentMonth = new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+  const currentMonth = useMemo(() => formatMonthLabel(monthKey), [monthKey]);
 
   const categorySpending = useMemo(() => {
-    const spending: Record<string, number> = {};
-    transactions.filter(t => t.type === 'expense').forEach(t => {
-      spending[t.category] = (spending[t.category] || 0) + Number(t.amount);
-    });
-    return spending;
-  }, [transactions]);
+    const monthlyTransactions = filterTransactionsByMonth(transactions, monthKey);
+    return calculateCategorySpending(monthlyTransactions);
+  }, [transactions, monthKey]);
 
   const handleCategoryBudgetChange = (category: Category, value: string) => {
     setCategoryBudgets(prev => ({ ...prev, [category]: value }));

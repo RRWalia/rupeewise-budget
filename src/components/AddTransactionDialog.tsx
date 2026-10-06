@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, type Category } from '@/lib/mockData';
 import { CategoryDropdown } from '@/components/CategoryDropdown';
 import { cn } from '@/lib/utils';
+import { addDaysLocal, getLocalDateInputValue } from '@/lib/date';
 import { useToast } from '@/hooks/use-toast';
 import { useAIAutocomplete } from '@/hooks/useAIAutocomplete';
 
@@ -35,7 +36,7 @@ export function AddTransactionDialog({ open, onOpenChange, onAdd, defaultType = 
   const [category, setCategory] = useState<Category | undefined>(undefined);
   const [paymentMode, setPaymentMode] = useState<'UPI' | 'Card' | 'Cash'>('UPI');
   const [note, setNote] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(getLocalDateInputValue());
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const { toast } = useToast();
@@ -96,13 +97,11 @@ export function AddTransactionDialog({ open, onOpenChange, onAdd, defaultType = 
   };
 
   const setDateToYesterday = () => {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    setDate(yesterday.toISOString().split('T')[0]);
+    setDate(getLocalDateInputValue(addDaysLocal(new Date(), -1)));
   };
 
   const setDateToToday = () => {
-    setDate(new Date().toISOString().split('T')[0]);
+    setDate(getLocalDateInputValue());
   };
 
   const validate = (): boolean => {
@@ -144,7 +143,7 @@ export function AddTransactionDialog({ open, onOpenChange, onAdd, defaultType = 
       setAmount('');
       setCategory(undefined);
       setNote('');
-      setDate(new Date().toISOString().split('T')[0]);
+      setDate(getLocalDateInputValue());
       setErrors({});
       clearSuggestion();
       onOpenChange(false);
@@ -156,6 +155,9 @@ export function AddTransactionDialog({ open, onOpenChange, onAdd, defaultType = 
       });
     }
   };
+
+  const todayInputValue = getLocalDateInputValue();
+  const yesterdayInputValue = getLocalDateInputValue(addDaysLocal(new Date(), -1));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -291,7 +293,7 @@ export function AddTransactionDialog({ open, onOpenChange, onAdd, defaultType = 
                   onClick={setDateToToday}
                   className={cn(
                     'rounded-lg border px-3 py-2 text-xs font-medium transition-colors',
-                    date === new Date().toISOString().split('T')[0]
+                    date === todayInputValue
                       ? 'border-primary bg-primary/10 text-primary'
                       : 'border-border text-muted-foreground hover:bg-secondary'
                   )}
@@ -303,11 +305,7 @@ export function AddTransactionDialog({ open, onOpenChange, onAdd, defaultType = 
                   onClick={setDateToYesterday}
                   className={cn(
                     'rounded-lg border px-3 py-2 text-xs font-medium transition-colors',
-                    date === (() => {
-                      const y = new Date();
-                      y.setDate(y.getDate() - 1);
-                      return y.toISOString().split('T')[0];
-                    })()
+                    date === yesterdayInputValue
                       ? 'border-primary bg-primary/10 text-primary'
                       : 'border-border text-muted-foreground hover:bg-secondary'
                   )}

@@ -4,59 +4,50 @@ import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
 import { TrendingUp, AlertTriangle, Sparkles, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Transaction } from '@/hooks/useTransactions';
+import { getDaysInMonth } from '@/lib/date';
+import { buildMonthlySavingsTrend, calculateTotals, filterTransactionsByMonth } from '@/lib/finance';
 
 interface SavingsTrendCardProps {
   transactions: Transaction[];
+  monthKey: string;
 }
 
-export function SavingsTrendCard({ transactions }: SavingsTrendCardProps) {
-  const { income, expenses, projectedSavings, savingsPercent, isOnTrack, lastMonthSavings, chartData } = useMemo(() => {
-    const income = transactions
-      .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + Number(t.amount), 0);
-    
-    const expenses = transactions
-      .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + Number(t.amount), 0);
-    
-    const currentSavings = income - expenses;
-    const daysInMonth = 31;
-    const currentDay = new Date().getDate();
-    const projectedExpenses = currentDay > 0 ? (expenses / currentDay) * daysInMonth : expenses;
-    const projectedSavings = income - projectedExpenses;
-    const savingsPercent = income > 0 ? (projectedSavings / income) * 100 : 0;
+interface SavingsTooltipPayload {
+  payload: {
+    month: string;
+    value: number;
+  };
+}
+
+interface SavingsTooltipProps {
+  active?: boolean;
+  payload?: SavingsTooltipPayload[];
+}
+
+export function SavingsTrendCard({ transactions, monthKey }: SavingsTrendCardProps) {
+  const { income, expenses, projectedSavings, savingsPercent, isOnTrack, currentSavings, chartData } = useMemo(() => {
+    const monthlyTransactions = filterTransactionsByMonth(transactions, monthKey);
+    const totals = calculateTotals(monthlyTransactions);
+
+    const daysInMonth = getDaysInMonth(monthKey);
+    const today = new Date();
+    const isCurrentMonth = monthKey === `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+    const elapsedDays = isCurrentMonth ? Math.max(1, Math.min(today.getDate(), daysInMonth)) : daysInMonth;
+    const projectedExpenses = elapsedDays > 0 ? (totals.expenses / elapsedDays) * daysInMonth : totals.expenses;
+    const projectedSavings = totals.income - projectedExpenses;
+    const savingsPercent = totals.income > 0 ? (projectedSavings / totals.income) * 100 : 0;
     const isOnTrack = savingsPercent >= 5;
 
-    // Group by month for chart
-    const monthlyData: Record<string, { income: number; expenses: number }> = {};
-    transactions.forEach(t => {
-      const month = new Date(t.date).toLocaleDateString('en-IN', { month: 'short' });
-      if (!monthlyData[month]) {
-        monthlyData[month] = { income: 0, expenses: 0 };
-      }
-      if (t.type === 'income') {
-        monthlyData[month].income += Number(t.amount);
-      } else {
-        monthlyData[month].expenses += Number(t.amount);
-      }
-    });
-
-    const chartData = Object.entries(monthlyData).map(([month, data]) => ({
-      month,
-      value: data.income - data.expenses,
-    }));
-
     return {
-      income,
-      expenses,
-      currentSavings,
-      projectedSavings: Math.max(0, projectedSavings),
+      income: totals.income,
+      expenses: totals.expenses,
+      currentSavings: totals.savings,
+      projectedSavings,
       savingsPercent,
       isOnTrack,
-      lastMonthSavings: currentSavings,
-      chartData,
+      chartData: buildMonthlySavingsTrend(transactions, monthKey),
     };
-  }, [transactions]);
+  }, [transactions, monthKey]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -66,7 +57,7 @@ export function SavingsTrendCard({ transactions }: SavingsTrendCardProps) {
     }).format(value);
   };
 
-  const CustomTooltip = ({ active, payload }: any) => {
+  const CustomTooltip = ({ active, payload }: SavingsTooltipProps) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
@@ -117,13 +108,13 @@ export function SavingsTrendCard({ transactions }: SavingsTrendCardProps) {
           <div className="rounded-xl bg-secondary/50 p-4">
             <p className="text-sm text-muted-foreground">Current savings</p>
             <p className="font-display text-2xl font-bold text-card-foreground">
-              {formatCurrency(lastMonthSavings)}
+              {formatCurrency(currentSavings)}
             </p>
             <p className={cn(
               'text-sm',
-              lastMonthSavings >= 0 ? 'text-income' : 'text-expense'
+              currentSavings >= 0 ? 'text-income' : 'text-expense'
             )}>
-              {income > 0 ? ((lastMonthSavings / income) * 100).toFixed(1) : 0}% of income
+              {income > 0 ? ((currentSavings / income) * 100).toFixed(1) : 0}% of income
             </p>
           </div>
 
@@ -134,7 +125,7 @@ export function SavingsTrendCard({ transactions }: SavingsTrendCardProps) {
             <p className="text-sm text-muted-foreground">Projected this month</p>
             <p className={cn(
               'font-display text-2xl font-bold',
-              isOnTrack ? 'text-income' : 'text-warning'
+              projectedSavings >= 0 ? (isOnTrack ? 'text-income' : 'text-warning') : 'text-expense'
             )}>
               ≈{formatCurrency(projectedSavings)}
             </p>
@@ -148,7 +139,7 @@ export function SavingsTrendCard({ transactions }: SavingsTrendCardProps) {
         </div>
 
         <div className="flex flex-col">
-          {chartData.length > 0 ? (
+          {chartData.some(point => point.value !== 0) ? (
             <div className="h-[120px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData}>
@@ -180,7 +171,7 @@ export function SavingsTrendCard({ transactions }: SavingsTrendCardProps) {
           <div className="mt-2 flex items-start gap-1.5 rounded bg-muted/30 px-2 py-1.5">
             <Info className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" />
             <p className="text-[10px] leading-relaxed text-muted-foreground">
-              Projection based on last 4 weeks' average spending
+              Projection based on month-to-date spending pace.
             </p>
           </div>
 
@@ -190,9 +181,11 @@ export function SavingsTrendCard({ transactions }: SavingsTrendCardProps) {
               {transactions.length === 0 ? (
                 <>Start adding transactions to track your savings and get personalized insights!</>
               ) : isOnTrack ? (
-                <>At your current pace, you're <span className="font-medium text-income">on track</span> to save ≈{formatCurrency(projectedSavings)} this month!</>
+                <>At your current pace, you're <span className="font-medium text-income">on track</span> to save ≈{formatCurrency(projectedSavings)} this month.</>
+              ) : projectedSavings < 0 ? (
+                <>At your current pace, expenses may exceed income by ≈{formatCurrency(Math.abs(projectedSavings))}. Review discretionary spending early.</>
               ) : (
-                <>At your current pace, you may save only ≈{formatCurrency(projectedSavings)}. <span className="font-medium text-warning">Reduce shopping and entertainment</span> to stay above 5% savings.</>
+                <>At your current pace, you may save ≈{formatCurrency(projectedSavings)}. <span className="font-medium text-warning">Reduce high-spend categories</span> to stay above 5% savings.</>
               )}
             </p>
           </div>

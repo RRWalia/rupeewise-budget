@@ -8,11 +8,32 @@ export interface Transaction {
   date: string;
   category: string;
   payment_mode: string;
-  note?: string;
+  note?: string | null;
   type: 'income' | 'expense';
   created_at: string;
   updated_at?: string | null;
-  user_id?: string;
+  user_id?: string | null;
+}
+
+type EditableTransactionField = keyof Pick<Transaction, 'amount' | 'date' | 'category' | 'payment_mode' | 'note'>;
+type EditableTransactionUpdates = Partial<Pick<Transaction, EditableTransactionField>>;
+
+function normalizeTransaction(transaction: {
+  id: string;
+  amount: number;
+  date: string;
+  category: string;
+  payment_mode: string;
+  note?: string | null;
+  type: string;
+  created_at: string;
+  updated_at?: string | null;
+  user_id?: string | null;
+}): Transaction {
+  return {
+    ...transaction,
+    type: transaction.type as 'income' | 'expense',
+  };
 }
 
 export function useTransactions() {
@@ -36,10 +57,7 @@ export function useTransactions() {
         .order('date', { ascending: false });
 
       if (error) throw error;
-      setTransactions((data || []).map(t => ({
-        ...t,
-        type: t.type as 'income' | 'expense'
-      })));
+      setTransactions((data || []).map(normalizeTransaction));
     } catch (error) {
       console.error('Error fetching transactions:', error);
     } finally {
@@ -60,11 +78,11 @@ export function useTransactions() {
 
       if (error) throw error;
       
-      const typedData = { ...data, type: data.type as 'income' | 'expense' };
+      const typedData = normalizeTransaction(data);
       // Update local state immediately with server-confirmed data
       setTransactions(prev => {
         const updated = [typedData, ...prev];
-        updated.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        updated.sort((a, b) => b.date.localeCompare(a.date));
         return updated;
       });
       return { success: true, data: typedData };
@@ -86,37 +104,26 @@ export function useTransactions() {
 
   const updateTransaction = async (
     id: string,
-    updates: Partial<Pick<Transaction, 'amount' | 'date' | 'category' | 'payment_mode' | 'note'>>
+    updates: EditableTransactionUpdates
   ) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Session expired. Please sign in again.');
 
-      // Get current transaction for audit trail
+      // Get current transaction to avoid unnecessary writes. The database trigger owns audit history.
       const current = transactions.find(t => t.id === id);
       if (!current) throw new Error('Transaction not found');
 
-      // Build audit entries
-      const historyEntries: { transaction_id: string; user_id: string; field_name: string; old_value: string; new_value: string }[] = [];
-      for (const [key, newVal] of Object.entries(updates)) {
-        const oldVal = String((current as any)[key] ?? '');
-        const newValStr = String(newVal ?? '');
-        if (oldVal !== newValStr) {
-          historyEntries.push({
-            transaction_id: id,
-            user_id: user.id,
-            field_name: key,
-            old_value: oldVal,
-            new_value: newValStr,
-          });
-        }
-      }
+      const changedFields = (Object.keys(updates) as EditableTransactionField[]).filter(key => {
+        const oldVal = String(current[key] ?? '');
+        const newVal = String(updates[key] ?? '');
+        return oldVal !== newVal;
+      });
 
-      if (historyEntries.length === 0) {
+      if (changedFields.length === 0) {
         return { success: true, data: current };
       }
 
-      // Update transaction
       const { data, error } = await supabase
         .from('transactions')
         .update({ ...updates, updated_at: new Date().toISOString() })
@@ -127,12 +134,7 @@ export function useTransactions() {
 
       if (error) throw error;
 
-      // Log edit history
-      if (historyEntries.length > 0) {
-        await supabase.from('transaction_history').insert(historyEntries);
-      }
-
-      const typedData = { ...data, type: data.type as 'income' | 'expense' };
+      const typedData = normalizeTransaction(data);
       setTransactions(prev => prev.map(t => t.id === id ? typedData : t));
       return { success: true, data: typedData };
     } catch (error) {
@@ -165,35 +167,49 @@ export function useTransactions() {
     }
   };
 
-  // Realtime subscription + polling fallback for reliability
+  // Realtime subscription scoped to the current user. A slower polling fallback starts only if realtime fails.
   useEffect(() => {
-    let pollTimer: ReturnType<typeof setInterval>;
+    let pollTimer: ReturnType<typeof setInterval> | undefined;
+    let channel: ReturnType<typeof supabase.channel> | undefined;
+    let cancelled = false;
 
-    const channel = supabase
-      .channel('transactions-realtime')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'transactions' },
-        () => {
-          fetchTransactions();
-        }
-      )
-      .subscribe((status) => {
-        console.log('Realtime channel status:', status);
-        // If realtime fails, fall back to polling every 3s
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-          if (!pollTimer) {
-            pollTimer = setInterval(fetchTransactions, 3000);
+    const startFallbackPolling = () => {
+      if (!pollTimer) {
+        pollTimer = setInterval(fetchTransactions, 60_000);
+      }
+    };
+
+    const setupRealtime = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || cancelled) return;
+
+      channel = supabase
+        .channel(`transactions-realtime-${user.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'transactions',
+            filter: `user_id=eq.${user.id}`,
+          },
+          () => {
+            fetchTransactions();
           }
-        }
-      });
+        )
+        .subscribe((status) => {
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            startFallbackPolling();
+          }
+        });
+    };
 
-    // Always poll as a safety net (every 5s), in case realtime silently drops events
-    pollTimer = setInterval(fetchTransactions, 5000);
+    setupRealtime();
 
     return () => {
-      clearInterval(pollTimer);
-      supabase.removeChannel(channel);
+      cancelled = true;
+      if (pollTimer) clearInterval(pollTimer);
+      if (channel) supabase.removeChannel(channel);
     };
   }, [fetchTransactions]);
 
