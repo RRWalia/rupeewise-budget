@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Home, PieChart, Plus } from 'lucide-react';
+import { Home, PieChart, Plus, Settings } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
@@ -14,6 +14,7 @@ export function BottomNav({ onAddClick }: BottomNavProps) {
   const navItems = [
     { path: '/', icon: Home, label: 'Home' },
     { path: '/budget', icon: PieChart, label: 'Budget' },
+    { path: '/settings', icon: Settings, label: 'Settings' },
   ];
 
   return (
@@ -24,13 +25,20 @@ export function BottomNav({ onAddClick }: BottomNavProps) {
           <div className="absolute bottom-0 left-4 right-4 h-[72px] rounded-t-3xl bg-card shadow-lg border border-b-0 border-border" />
           
           {/* Nav items container */}
-          <div className="relative flex w-full items-center justify-between px-6">
-            {/* Left nav item */}
-            <NavItem
-              {...navItems[0]}
-              isActive={location.pathname === navItems[0].path}
-              onClick={() => navigate(navItems[0].path)}
-            />
+          <div className="relative flex w-full items-center justify-between px-4">
+            {/* Left nav items */}
+            <div className="flex items-center gap-5">
+              <NavItem
+                {...navItems[0]}
+                isActive={location.pathname === navItems[0].path}
+                onClick={() => navigate(navItems[0].path)}
+              />
+              <NavItem
+                {...navItems[1]}
+                isActive={location.pathname === navItems[1].path}
+                onClick={() => navigate(navItems[1].path)}
+              />
+            </div>
 
             {/* Center FAB - Larger and more prominent */}
             <motion.button
@@ -45,9 +53,9 @@ export function BottomNav({ onAddClick }: BottomNavProps) {
 
             {/* Right nav item */}
             <NavItem
-              {...navItems[1]}
-              isActive={location.pathname === navItems[1].path}
-              onClick={() => navigate(navItems[1].path)}
+              {...navItems[2]}
+              isActive={location.pathname === navItems[2].path}
+              onClick={() => navigate(navItems[2].path)}
             />
           </div>
         </div>

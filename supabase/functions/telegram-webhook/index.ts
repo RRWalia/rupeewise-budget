@@ -68,7 +68,7 @@ function parseExpenseText(text: string): { amount: number; description: string }
   if (!Number.isFinite(amount) || amount <= 0 || amount > MAX_AMOUNT) return null;
 
   const description = (text.slice(0, last.index) + " " + text.slice((last.index ?? 0) + last[0].length))
-    .replace(/[₹\s,.\-]+/g, " ")
+    .replace(/[₹\s,.-]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 

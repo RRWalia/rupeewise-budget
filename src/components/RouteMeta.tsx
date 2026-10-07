@@ -20,6 +20,10 @@ const META: Record<string, { title: string; description: string }> = {
     title: 'Reset Password — RupeeWise',
     description: 'Reset your RupeeWise account password securely.',
   },
+  '/settings': {
+    title: 'Settings — RupeeWise',
+    description: 'Connect the RupeeWise Telegram bot and manage app preferences.',
+  },
 };
 
 function setMeta(attr: 'name' | 'property', key: string, content: string) {

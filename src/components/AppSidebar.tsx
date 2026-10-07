@@ -1,4 +1,4 @@
-import { Home, PieChart, Plus, LogOut, User } from 'lucide-react';
+import { Home, PieChart, Plus, LogOut, User, Settings } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -20,6 +20,7 @@ import { NavLink } from '@/components/NavLink';
 const navItems = [
   { title: 'Dashboard', url: '/', icon: Home },
   { title: 'Budget Planning', url: '/budget', icon: PieChart },
+  { title: 'Settings', url: '/settings', icon: Settings },
 ];
 
 interface AppSidebarProps {

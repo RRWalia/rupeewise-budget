@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      bot_chats: {
+        Row: {
+          id: string
+          user_id: string
+          provider: string
+          status: string
+          chat_id: string | null
+          bot_token: string
+          bot_username: string | null
+          bind_code: string | null
+          webhook_secret: string
+          last_transaction_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          provider?: string
+          status?: string
+          chat_id?: string | null
+          bot_token: string
+          bot_username?: string | null
+          bind_code?: string | null
+          webhook_secret: string
+          last_transaction_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          provider?: string
+          status?: string
+          chat_id?: string | null
+          bot_token?: string
+          bot_username?: string | null
+          bind_code?: string | null
+          webhook_secret?: string
+          last_transaction_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       budgets: {
         Row: {
           created_at: string
