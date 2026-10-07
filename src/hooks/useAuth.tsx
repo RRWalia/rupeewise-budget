@@ -105,77 +105,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { data: result, error: null };
       }
 
-      // Off-platform hosts (e.g. Netlify) do not serve /~oauth/initiate, so a
-      // top-level redirect just reloads the app and silently drops the OAuth
-      // attempt. Instead, run Lovable's brokered Google OAuth in a popup on the
-      // project's lovable.app origin and complete the Supabase session from
-      // the broker's postMessage.
-      const state = [...crypto.getRandomValues(new Uint8Array(16))]
-        .map((b) => b.toString(16).padStart(2, '0'))
-        .join('');
-      const params = new URLSearchParams({
+      // Off-platform hosts (e.g. Netlify) do not serve /~oauth/initiate, and
+      // the popup brokered against the lovable.app origin no longer relays an
+      // authorization_response back — the popup stalls or gets closed and the
+      // user sees "Sign in was cancelled". The Supabase project's own Google
+      // provider is enabled with this origin allowlisted, so run a plain
+      // full-page OAuth redirect instead: Supabase bounces through Google and
+      // returns to <origin>/auth with the session, which supabase-js picks up
+      // from the URL hash automatically.
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        redirect_uri: LOVABLE_ORIGIN,
-        state,
-        response_mode: 'web_message',
-      });
-      const width = Math.round(window.screen.width * 0.5);
-      const height = Math.round(window.screen.height * 0.6);
-      const left = Math.round((window.screen.width - width) / 2);
-      const top = Math.round((window.screen.height - height) / 2);
-      const popup = window.open(
-        `${LOVABLE_ORIGIN}/~oauth/initiate?${params.toString()}`,
-        'lovable-oauth',
-        `width=${width},height=${height},left=${left},top=${top}`,
-      );
-      if (!popup) {
-        return { data: null, error: new Error('Popup was blocked. Please allow popups for this site and try again.') };
-      }
-
-      const response = await new Promise<Record<string, string> | null>((resolve, reject) => {
-        const supportedOrigins = ['https://oauth.lovable.app', 'https://lovable.dev', LOVABLE_ORIGIN];
-        const cleanup = () => {
-          window.clearInterval(timer);
-          window.removeEventListener('message', onMessage);
-          if (!popup.closed) popup.close();
-        };
-        const timer = window.setInterval(() => {
-          if (popup.closed) {
-            cleanup();
-            reject(new Error('Sign in was cancelled'));
-          }
-        }, 500);
-        const onMessage = (e: MessageEvent) => {
-          if (!supportedOrigins.includes(e.origin)) return;
-          const data = e.data as { type?: string; response?: Record<string, string> } | null;
-          if (!data || data.type !== 'authorization_response') return;
-          cleanup();
-          resolve(data.response ?? null);
-        };
-        window.addEventListener('message', onMessage);
-      });
-
-      if (!response) {
-        return { data: null, error: new Error('No response received from the sign-in window') };
-      }
-      if (response.state !== state) {
-        return { data: null, error: new Error('Sign-in state mismatch. Please try again.') };
-      }
-      if (response.error) {
-        return { data: null, error: new Error(response.error_description ?? response.error) };
-      }
-      if (!response.access_token || !response.refresh_token) {
-        return { data: null, error: new Error('No tokens received from Google sign-in') };
-      }
-
-      const { error } = await supabase.auth.setSession({
-        access_token: response.access_token,
-        refresh_token: response.refresh_token,
+        options: {
+          redirectTo: `${window.location.origin}/auth`,
+        },
       });
       if (error) {
         return { data: null, error: new Error(error.message) };
       }
-      return { data: response, error: null };
+      // The browser is navigating away to Google; nothing else to do here.
+      return { data: {}, error: null };
     } catch (err) {
       return { data: null, error: err instanceof Error ? err : new Error(String(err)) };
     }
