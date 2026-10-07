@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Bot, Loader2, MessageSquare, CheckCircle2, XCircle, ExternalLink, Trash2 } from 'lucide-react';
+import { Bot, Loader2, MessageSquare, CheckCircle2, XCircle, ExternalLink, Trash2, Smartphone, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -107,7 +108,7 @@ const Settings = () => {
               Telegram Bot
             </CardTitle>
             <CardDescription>
-              Log expenses by messaging your own bot — “Coffee 150” becomes a categorized transaction.
+              Log simple expenses by chat. Forwarded bank SMS are held for your approval before anything is added.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
@@ -149,10 +150,10 @@ const Settings = () => {
                 </div>
                 <div className="rounded-md border border-dashed px-3 py-3 text-center">
                   <p className="mb-1 text-xs text-muted-foreground">
-                    Message your bot things like <span className="font-mono">Coffee 150</span> — RupeeWise picks the category. <span className="font-mono">/undo</span> removes the last entry.
+                    Message your bot things like <span className="font-mono">Coffee 150</span> — RupeeWise picks the category. Forwarded bank SMS wait for your approval. <span className="font-mono">/undo</span> removes the last chat entry.
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Words like “salary” or “received” log income instead.
+                    For regular chat entries, words like “salary” or “received” mark the entry as income.
                   </p>
                 </div>
                 <Button variant="outline" size="sm" onClick={handleDisconnect} disabled={disconnecting}>
@@ -182,6 +183,41 @@ const Settings = () => {
                   Cancel setup
                 </Button>
               </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="mt-5">
+          <CardHeader className="space-y-1">
+            <CardTitle className="flex items-center gap-2 text-xl font-display">
+              <Smartphone className="h-5 w-5" />
+              Review bank SMS
+            </CardTitle>
+            <CardDescription>
+              Forward matching bank alerts to your connected Telegram bot. RupeeWise will suggest a category, but it will not add the transaction until you approve it.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-2 rounded-md bg-primary/5 px-3 py-3 text-sm">
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <p className="text-muted-foreground">
+                This web app cannot read your phone's SMS inbox and does not request SMS access. The original SMS text is not saved; RupeeWise keeps only the parsed details needed for review.
+              </p>
+            </div>
+            <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
+              <li>On Android, choose a trusted SMS-forwarding or automation app that explicitly supports sending message text to a Telegram bot or chat; support varies by tool.</li>
+              <li>Forward only transaction alerts from your bank sender IDs (for example, HDFCBK or SBIINB), preserving the amount, date and sender when possible. If the sender is omitted, prefix forwarded text with <span className="font-mono text-foreground">SMS:</span>.</li>
+              <li>Matched debit and credit alerts appear in <span className="font-medium text-foreground">Approvals</span>. Check the amount, date and suggested category, then approve, edit or dismiss.</li>
+            </ol>
+            <p className="text-xs text-muted-foreground">
+              Exclude OTPs, login codes and promotional messages in the forwarder. Identifiable OTP, failed and promotional alerts are ignored, but filtering them on your phone is safest. iPhone does not allow apps to read SMS in the background; use manual entry or statement import there.
+            </p>
+            {botChat?.status === 'active' ? (
+              <Button asChild variant="outline">
+                <Link to="/approvals">Review pending SMS</Link>
+              </Button>
+            ) : (
+              <p className="text-xs font-medium text-muted-foreground">Connect your Telegram bot above before setting up forwarding.</p>
             )}
           </CardContent>
         </Card>

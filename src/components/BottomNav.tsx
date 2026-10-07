@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Home, PieChart, Plus, Settings } from 'lucide-react';
+import { Home, PieChart, Plus, Settings, Inbox } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
@@ -7,56 +7,50 @@ interface BottomNavProps {
   onAddClick: () => void;
 }
 
+const navItems = [
+  { path: '/', icon: Home, label: 'Home' },
+  { path: '/budget', icon: PieChart, label: 'Budget' },
+  { path: '/approvals', icon: Inbox, label: 'Approvals' },
+  { path: '/settings', icon: Settings, label: 'Settings' },
+];
+
 export function BottomNav({ onAddClick }: BottomNavProps) {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const navItems = [
-    { path: '/', icon: Home, label: 'Home' },
-    { path: '/budget', icon: PieChart, label: 'Budget' },
-    { path: '/settings', icon: Settings, label: 'Settings' },
-  ];
+  const renderItem = ({ path, ...item }: typeof navItems[number]) => (
+    <NavItem
+      key={path}
+      {...item}
+      isActive={location.pathname === path}
+      onClick={() => navigate(path)}
+    />
+  );
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40">
       <div className="mx-auto max-w-lg">
-        <div className="relative flex items-end justify-center px-6 pb-4">
-          {/* Background bar */}
-          <div className="absolute bottom-0 left-4 right-4 h-[72px] rounded-t-3xl bg-card shadow-lg border border-b-0 border-border" />
-          
-          {/* Nav items container */}
-          <div className="relative flex w-full items-center justify-between px-4">
-            {/* Left nav items */}
-            <div className="flex items-center gap-5">
-              <NavItem
-                {...navItems[0]}
-                isActive={location.pathname === navItems[0].path}
-                onClick={() => navigate(navItems[0].path)}
-              />
-              <NavItem
-                {...navItems[1]}
-                isActive={location.pathname === navItems[1].path}
-                onClick={() => navigate(navItems[1].path)}
-              />
+        <div className="relative flex items-end justify-center px-4 pb-4">
+          <div className="absolute bottom-0 left-3 right-3 h-[72px] rounded-t-3xl border border-b-0 border-border bg-card shadow-lg" />
+
+          <div className="relative flex w-full items-center justify-between gap-1">
+            <div className="flex min-w-0 flex-1 items-center justify-around">
+              {navItems.slice(0, 2).map(renderItem)}
             </div>
 
-            {/* Center FAB - Larger and more prominent */}
             <motion.button
               whileHover={{ scale: 1.08 }}
               whileTap={{ scale: 0.95 }}
               onClick={onAddClick}
               aria-label="Add transaction"
-              className="relative -top-5 flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl ring-4 ring-background transition-shadow hover:shadow-2xl"
+              className="relative -top-5 flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl ring-4 ring-background transition-shadow hover:shadow-2xl"
             >
               <Plus className="h-7 w-7" strokeWidth={2.5} />
             </motion.button>
 
-            {/* Right nav item */}
-            <NavItem
-              {...navItems[2]}
-              isActive={location.pathname === navItems[2].path}
-              onClick={() => navigate(navItems[2].path)}
-            />
+            <div className="flex min-w-0 flex-1 items-center justify-around">
+              {navItems.slice(2).map(renderItem)}
+            </div>
           </div>
         </div>
       </div>
@@ -75,17 +69,19 @@ function NavItem({ icon: Icon, label, isActive, onClick }: NavItemProps) {
   return (
     <button
       onClick={onClick}
+      aria-label={label}
+      aria-current={isActive ? 'page' : undefined}
       className={cn(
-        'flex flex-col items-center gap-1 py-3 px-8 transition-colors relative',
-        isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+        'relative flex min-w-0 flex-col items-center gap-1 px-1 py-3 transition-colors',
+        isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
       )}
     >
-      <Icon className={cn('h-6 w-6', isActive && 'stroke-[2.5]')} />
-      <span className={cn('text-xs', isActive ? 'font-semibold' : 'font-medium')}>{label}</span>
+      <Icon className={cn('h-5 w-5', isActive && 'stroke-[2.5]')} />
+      <span className={cn('text-[10px] leading-none', isActive ? 'font-semibold' : 'font-medium')}>{label}</span>
       {isActive && (
         <motion.div
           layoutId="navIndicator"
-          className="absolute -bottom-0.5 h-1 w-10 rounded-full bg-primary"
+          className="absolute -bottom-0.5 h-1 w-8 rounded-full bg-primary"
         />
       )}
     </button>

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { isBankSmsLike, parseBankSmsTransaction } from "../_shared/sms-parser.ts";
 
 const TELEGRAM_API = "https://api.telegram.org";
 
@@ -35,6 +36,7 @@ type BotChatRow = {
 
 type TelegramUpdate = {
   message?: {
+    message_id?: number;
     chat: { id: number };
     text?: string;
   };
@@ -54,6 +56,12 @@ function okResponse() {
 // Today's date in IST (UTC+5:30), the app's target timezone.
 function todayIST(): string {
   return new Date(Date.now() + 5.5 * 3_600_000).toISOString().slice(0, 10);
+}
+
+async function smsFingerprint(userId: string, sender: string | null, message: string): Promise<string> {
+  const canonical = JSON.stringify([userId, sender ?? "", message]);
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 // Extract the amount (last number in the message) and the description around it.
@@ -168,7 +176,7 @@ serve(async (req) => {
 
     if (command === "/start") {
       if (bot.status === "active") {
-        await send("Already connected ✔ Just send expenses like \"Coffee 150\". /undo removes the last one.");
+        await send("Already connected ✔ Send expenses like \"Coffee 150\". Forward bank SMS here to review before they are added. /undo removes the last chat entry.");
         return okResponse();
       }
       const code = text.split(/\s+/)[1];
@@ -177,7 +185,7 @@ serve(async (req) => {
           .from("bot_chats")
           .update({ chat_id: chatId, status: "active", bind_code: null, updated_at: new Date().toISOString() })
           .eq("id", bot.id);
-        await send("Connected to RupeeWise ✔\nSend expenses like \"Coffee 150\" or \"Auto 30000\".\nIncome hint: \"Received 5000 from freelance\". /undo removes the last entry.");
+        await send("Connected to RupeeWise ✔\nSend expenses like \"Coffee 150\" or \"Auto 30000\".\nIncome hint: \"Received 5000 from freelance\". Forward bank SMS here to review before they are added. /undo removes the last chat entry.");
       } else {
         await send("This bot is not linked to a RupeeWise account yet. Connect it from the app: Settings → Telegram Bot.");
       }
@@ -210,8 +218,76 @@ serve(async (req) => {
       return okResponse();
     }
 
+    if (isBankSmsLike(text)) {
+      const parsedSms = parseBankSmsTransaction(text);
+      if (!parsedSms) {
+        await send("I recognized a forwarded bank SMS, but it does not look like a completed transaction. Nothing was added.");
+        return okResponse();
+      }
+
+      const sourceFingerprint = await smsFingerprint(bot.user_id, parsedSms.sender, parsedSms.fingerprintText);
+      const { data: alreadySeen } = await supabaseAdmin
+        .from("pending_transactions")
+        .select("status")
+        .eq("user_id", bot.user_id)
+        .eq("source_fingerprint", sourceFingerprint)
+        .maybeSingle();
+      if (alreadySeen) {
+        await send(alreadySeen.status === "pending"
+          ? "This SMS is already waiting for your review in RupeeWise → Approvals. Nothing has been added yet."
+          : "This SMS has already been reviewed, so it was not added again.");
+        return okResponse();
+      }
+
+      const { category, note, guessed } = await categorizeWithAI(parsedSms.merchant, parsedSms.type);
+      const { error: pendingError } = await supabaseAdmin.from("pending_transactions").insert({
+        user_id: bot.user_id,
+        bot_chat_id: bot.id,
+        telegram_message_id: message.message_id ?? null,
+        source_fingerprint: sourceFingerprint,
+        source_sender: parsedSms.sender,
+        amount: parsedSms.amount,
+        type: parsedSms.type,
+        category,
+        category_guessed: guessed,
+        payment_mode: parsedSms.paymentMode,
+        date: parsedSms.date,
+        note: note || parsedSms.merchant,
+      });
+
+      if (pendingError?.code === "23505") {
+        const { data: duplicate } = await supabaseAdmin
+          .from("pending_transactions")
+          .select("status")
+          .eq("user_id", bot.user_id)
+          .eq("source_fingerprint", sourceFingerprint)
+          .maybeSingle();
+        const messageText = duplicate?.status === "pending"
+          ? "This SMS is already waiting for your review in RupeeWise → Approvals. Nothing has been added yet."
+          : duplicate
+            ? "This SMS has already been reviewed, so it was not added again."
+            : "This SMS was already received. Check RupeeWise → Approvals; no duplicate was added.";
+        await send(messageText);
+        return okResponse();
+      }
+
+      if (pendingError) {
+        console.error("telegram-webhook pending SMS insert error:", pendingError);
+        await send("I couldn't save this SMS for review. Nothing was added; please forward it again or add it in the app.");
+        return okResponse();
+      }
+
+      const label = note || parsedSms.merchant;
+      await send(
+        `🔎 SMS found: ${parsedSms.type === "income" ? "income" : "expense"} — ${label}, ₹${parsedSms.amount.toLocaleString("en-IN")} · suggested ${category}` +
+          (guessed ? " (best guess)" : "") +
+          "\nNot added yet. Review, edit, approve or dismiss it in RupeeWise → Approvals."
+      );
+      return okResponse();
+    }
+
     if (command.startsWith("/")) {
-      await send("Commands: /undo — remove the last logged entry. Anything else is logged as a transaction, e.g. \"Coffee 150\".");
+      await send('Commands: /undo — remove the last logged entry. Anything else is logged as a transaction, e.g. "Coffee 150". Bank SMS are held for approval.');
       return okResponse();
     }
 

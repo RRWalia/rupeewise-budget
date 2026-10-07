@@ -22,7 +22,11 @@ const META: Record<string, { title: string; description: string }> = {
   },
   '/settings': {
     title: 'Settings — RupeeWise',
-    description: 'Connect the RupeeWise Telegram bot and manage app preferences.',
+    description: 'Connect the RupeeWise Telegram bot, set up bank SMS forwarding and manage preferences.',
+  },
+  '/approvals': {
+    title: 'Approvals — RupeeWise',
+    description: 'Review and approve categorized bank SMS suggestions before they are added to your transactions.',
   },
 };
 
