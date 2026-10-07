@@ -98,7 +98,7 @@ const Auth = () => {
     }
   };
 
-  const handleSubmit = async (e: React.FormFormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setTouched({ email: true, password: true });
 
