@@ -1,5 +1,4 @@
-import { Home, PieChart, Plus, LogOut, User, Settings } from 'lucide-react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Home, PieChart, Plus, LogOut, Settings, Inbox } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -20,6 +19,7 @@ import { NavLink } from '@/components/NavLink';
 const navItems = [
   { title: 'Dashboard', url: '/', icon: Home },
   { title: 'Budget Planning', url: '/budget', icon: PieChart },
+  { title: 'Approvals', url: '/approvals', icon: Inbox },
   { title: 'Settings', url: '/settings', icon: Settings },
 ];
 
@@ -30,7 +30,6 @@ interface AppSidebarProps {
 export function AppSidebar({ onAddClick }: AppSidebarProps) {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
-  const location = useLocation();
   const { user, signOut } = useAuth();
   const { toast } = useToast();
 

@@ -11,6 +11,7 @@ import Auth from "./pages/Auth";
 import Index from "./pages/Index";
 import Budget from "./pages/Budget";
 import Settings from "./pages/Settings";
+import Approvals from "./pages/Approvals";
 import NotFound from "./pages/NotFound";
 import { RouteMeta } from "@/components/RouteMeta";
 
@@ -24,6 +25,7 @@ const ProtectedApp = () => (
           <Route path="/" element={<Index />} />
           <Route path="/budget" element={<Budget />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/approvals" element={<Approvals />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </AppLayout>

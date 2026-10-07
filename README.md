@@ -47,10 +47,19 @@ Supabase Edge Functions also require server-side secrets such as `LOVABLE_API_KE
 
 ## Supabase notes
 
-- Tables: `transactions`, `budgets`, `transaction_history`.
-- RLS policies scope user data by `auth.uid()`.
+- Tables include `transactions`, `budgets`, `transaction_history`, `bot_chats`, and `pending_transactions`.
+- RLS policies scope user data by `auth.uid()`; SMS approval writes go through ownership-checked database functions.
 - AI functions require authenticated JWTs.
 - `ALLOWED_ORIGINS` can be set for Edge Function CORS. If unset, local dev and the Lovable production domain are allowed.
+- Apply migrations in order, including `20261007000002_sms_approvals.sql`, and deploy the Telegram Edge Functions after changing them.
+
+## Bank SMS review
+
+RupeeWise is a web app and does not read the phone's SMS inbox. To bring SMS into the app, an Android user can configure a separate SMS-forwarding/automation tool to forward only selected bank transaction alerts to the connected Telegram bot. iOS does not expose background SMS access to third-party apps.
+
+Forwarded debit and credit alerts are parsed and categorized into `pending_transactions`. Preserve the sender ID in forwarded text when possible; otherwise prefix the message with `SMS:`. They do not affect balances until the user opens **Approvals**, checks or edits the suggested type, amount, date, payment mode and category, then approves. Dismissal never creates a transaction. Ordinary Telegram messages such as `Coffee 150` keep the existing direct-log behavior.
+
+The webhook stores the parsed fields and a one-way message fingerprint for deduplication; it does not persist the original SMS body. Configure the phone-side forwarder to exclude OTPs, login codes and promotional messages. The parser also declines recognizable OTP, failed and promotional alerts, but phone-side filtering is still recommended.
 
 ## Quality gates
 
