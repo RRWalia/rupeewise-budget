@@ -18,6 +18,21 @@ const PASSWORD_RULES = [
   { label: 'Special character', test: (p: string) => /[^A-Za-z0-9]/.test(p) },
 ];
 
+// Google sign-in is brokered by the Lovable-managed backend, which only
+// accepts this official origin. Self-hosted copies (e.g. Netlify) cannot
+// complete Google OAuth against it.
+const OFFICIAL_ORIGIN = 'https://rupeewise-budget.lovable.app';
+
+const LOVABLE_HOST_PATTERNS = [
+  /(^|\.)lovable\.app$/,
+  /(^|\.)lovableproject\.com$/,
+  /(^|\.)lovableproject-dev\.com$/,
+  /(^|\.)gpt-eng\.com$/,
+  /(^|\.)gptengineer\.run$/,
+];
+
+const isLovableHost = (host: string) => LOVABLE_HOST_PATTERNS.some((re) => re.test(host));
+
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
@@ -169,6 +184,22 @@ const Auth = () => {
   };
 
   const handleGoogleSignIn = async () => {
+    // Self-hosted copies (e.g. Netlify) share the Lovable-managed backend,
+    // whose OAuth callback only accepts the official lovable.app origin. An
+    // OAuth attempt from any other domain bounces back to the official site
+    // anyway — so say so honestly and send the user straight there instead
+    // of a confusing silent round-trip.
+    if (!isLovableHost(window.location.hostname) && window.self === window.top) {
+      toast({
+        title: 'Google sign-in continues on the official site',
+        description: `Opening rupeewise-budget.lovable.app — signing in there takes seconds. Email sign-in works here.`,
+      });
+      window.setTimeout(() => {
+        window.location.assign(OFFICIAL_ORIGIN);
+      }, 1500);
+      return;
+    }
+
     // Google blocks OAuth when triggered inside embedded previews.
     // Move users to a standalone tab first, then they can click Google there.
     if (window.self !== window.top) {
