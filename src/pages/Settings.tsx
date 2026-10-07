@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Bot, Loader2, MessageSquare, CheckCircle2, XCircle, ExternalLink, Trash2, Smartphone, ShieldCheck } from 'lucide-react';
+import { Bot, Loader2, MessageSquare, CheckCircle2, XCircle, ExternalLink, Trash2, Smartphone, ShieldCheck, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,8 +13,11 @@ type BotChat = {
   status: string;
   bot_username: string | null;
   bind_code: string | null;
+  webhook_secret: string | null;
   created_at: string;
 };
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? 'https://cuvhhjkhebfpnrixmxxq.supabase.co';
 
 const Settings = () => {
   const [botChat, setBotChat] = useState<BotChat | null>(null);
@@ -27,7 +30,7 @@ const Settings = () => {
   const loadBotChat = useCallback(async () => {
     const { data, error } = await supabase
       .from('bot_chats')
-      .select('id, status, bot_username, bind_code, created_at')
+      .select('id, status, bot_username, bind_code, webhook_secret, created_at')
       .eq('provider', 'telegram')
       .neq('status', 'disabled')
       .maybeSingle();
@@ -87,6 +90,17 @@ const Settings = () => {
       toast({ title: 'Bot disconnected' });
     } finally {
       setDisconnecting(false);
+    }
+  };
+
+  const handleCopyIngestUrl = async () => {
+    if (!botChat?.webhook_secret) return;
+    const url = `${SUPABASE_URL}/functions/v1/sms-ingest?s=${botChat.webhook_secret}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast({ title: 'Ingest URL copied', description: 'Paste it into your SMS forwarder app as the webhook/URL destination.' });
+    } catch {
+      toast({ title: 'Copy failed', description: url, variant: 'destructive' });
     }
   };
 
@@ -205,13 +219,33 @@ const Settings = () => {
               </p>
             </div>
             <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
-              <li>On Android, choose a trusted SMS-forwarding or automation app that explicitly supports sending message text to a Telegram bot or chat; support varies by tool.</li>
+              <li>Either auto-forward with the Android setup below, or manually long-press a bank alert in your SMS app and forward it to your connected Telegram bot.</li>
               <li>Forward only transaction alerts from your bank sender IDs (for example, HDFCBK or SBIINB), preserving the amount, date and sender when possible. If the sender is omitted, prefix forwarded text with <span className="font-mono text-foreground">SMS:</span>.</li>
               <li>Matched debit and credit alerts appear in <span className="font-medium text-foreground">Approvals</span>. Check the amount, date and suggested category, then approve, edit or dismiss.</li>
             </ol>
             <p className="text-xs text-muted-foreground">
               Exclude OTPs, login codes and promotional messages in the forwarder. Identifiable OTP, failed and promotional alerts are ignored, but filtering them on your phone is safest. iPhone does not allow apps to read SMS in the background; use manual entry or statement import there.
             </p>
+            {botChat?.status === 'active' && botChat.webhook_secret ? (
+              <div className="space-y-3 rounded-md border px-3 py-3">
+                <p className="text-sm font-medium">Auto-forward from Android (optional)</p>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  In an SMS-forwarding app such as <span className="font-medium text-foreground">SMS Telebot</span> or <span className="font-medium text-foreground">MacroDroid</span>, create a rule: trigger <span className="font-medium text-foreground">SMS received</span> from your bank sender IDs (e.g. HDFCBK, SBIINB) containing “debited” or “credited” (exclude “OTP”), and set the action to an <span className="font-medium text-foreground">HTTP POST</span> to this URL with the SMS text in a <span className="font-mono">text</span> field:
+                </p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 truncate rounded bg-muted px-2 py-1.5 text-[11px] text-muted-foreground">
+                    {SUPABASE_URL}/functions/v1/sms-ingest?s=•••{botChat.webhook_secret.slice(-4)}
+                  </code>
+                  <Button variant="outline" size="sm" onClick={handleCopyIngestUrl} className="shrink-0">
+                    <Copy className="mr-2 h-3.5 w-3.5" />
+                    Copy URL
+                  </Button>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  The URL contains your private ingest key — anyone with it can submit SMS for your review, so keep it to yourself. Matched alerts appear in <span className="font-medium text-foreground">Approvals</span> exactly like forwarded Telegram messages.
+                </p>
+              </div>
+            ) : null}
             {botChat?.status === 'active' ? (
               <Button asChild variant="outline">
                 <Link to="/approvals">Review pending SMS</Link>

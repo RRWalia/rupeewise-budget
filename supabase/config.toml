@@ -13,3 +13,8 @@ verify_jwt = true
 # unguessable per-connection `?s=` token that is verified against bot_chats.
 [functions.telegram-webhook]
 verify_jwt = false
+
+# Android SMS forwarders (SMS Telebot, MacroDroid, …) call this endpoint — no JWT
+# possible; secured by the same unguessable per-connection secret as the webhook.
+[functions.sms-ingest]
+verify_jwt = false

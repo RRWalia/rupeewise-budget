@@ -1,27 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { isBankSmsLike, parseBankSmsTransaction } from "../_shared/sms-parser.ts";
+import { categorizeWithAI, MAX_AMOUNT, smsFingerprint } from "../_shared/sms-ingest-core.ts";
 
 const TELEGRAM_API = "https://api.telegram.org";
 
-const expenseCategories = [
-  "Grocery",
-  "Housing",
-  "Loans & EMIs",
-  "Tuition & Education",
-  "Travel",
-  "Shopping",
-  "Entertainment",
-  "Medical",
-  "Personal",
-  "Health",
-];
-
-const incomeCategories = ["Salary", "Freelance", "Other"];
-
 const incomeKeywords = /\b(salary|received|got paid|paycheck|paycheque|freelance(?:\s+pay(?:ment)?)?|income|refund|cashback|credited|bonus|interest earned)\b/i;
-
-const MAX_AMOUNT = 100_000_000; // ₹10 crore — sanity ceiling for a personal tracker.
 
 type BotChatRow = {
   id: string;
@@ -42,10 +26,6 @@ type TelegramUpdate = {
   };
 };
 
-type AICompletionResponse = {
-  choices?: Array<{ message?: { content?: string } }>;
-};
-
 function okResponse() {
   return new Response(JSON.stringify({ ok: true }), {
     status: 200,
@@ -56,12 +36,6 @@ function okResponse() {
 // Today's date in IST (UTC+5:30), the app's target timezone.
 function todayIST(): string {
   return new Date(Date.now() + 5.5 * 3_600_000).toISOString().slice(0, 10);
-}
-
-async function smsFingerprint(userId: string, sender: string | null, message: string): Promise<string> {
-  const canonical = JSON.stringify([userId, sender ?? "", message]);
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 // Extract the amount (last number in the message) and the description around it.
@@ -81,55 +55,6 @@ function parseExpenseText(text: string): { amount: number; description: string }
     .trim();
 
   return { amount, description };
-}
-
-async function categorizeWithAI(
-  description: string,
-  type: "income" | "expense"
-): Promise<{ category: string; note: string; guessed: boolean }> {
-  const categories = type === "expense" ? expenseCategories : incomeCategories;
-  const fallback = type === "expense" ? "Personal" : "Other";
-
-  const apiKey = Deno.env.get("LOVABLE_API_KEY");
-  if (!apiKey || !description) {
-    return { category: fallback, note: description, guessed: true };
-  }
-
-  try {
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: "You are a helpful financial assistant. Always respond with valid JSON only, no markdown." },
-          {
-            role: "user",
-            content: `An Indian user logged this ${type} via chat: "${description}".
-Pick the single best category from: ${categories.join(", ")}.
-Respond with JSON only: {"category": "<one from the list>", "note": "<short clean note, max 40 chars>"}`,
-          },
-        ],
-      }),
-    });
-
-    if (!response.ok) throw new Error(`AI gateway error: ${response.status}`);
-
-    const data = await response.json() as AICompletionResponse;
-    const content = data.choices?.[0]?.message?.content ?? "";
-    const match = content.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error("No JSON in AI response");
-
-    const parsed = JSON.parse(match[0]) as { category?: unknown; note?: unknown };
-    const category = typeof parsed.category === "string" && categories.includes(parsed.category)
-      ? parsed.category
-      : fallback;
-    const note = typeof parsed.note === "string" && parsed.note.trim() ? parsed.note.trim().slice(0, 40) : description;
-
-    return { category, note, guessed: category === fallback };
-  } catch {
-    return { category: fallback, note: description, guessed: true };
-  }
 }
 
 serve(async (req) => {
