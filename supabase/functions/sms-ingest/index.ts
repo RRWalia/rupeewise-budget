@@ -62,25 +62,30 @@ function requestMeta(req: Request): { ip: string | null; user_agent: string | nu
   };
 }
 
-// Fire-and-forget: a logging failure must never break the ingest request.
-function logAttempt(
+// Awaited, not fire-and-forget: Deno edge isolates drop pending promises once
+// the response is returned, so fire-and-forget inserts never landed in
+// sms_ingest_logs. A logging failure must never break the ingest request,
+// hence the try/catch swallow.
+async function logAttempt(
   supabaseAdmin: ReturnType<typeof createClient>,
   entry: IngestLogEntry
 ) {
-  supabaseAdmin
-    .from("sms_ingest_logs")
-    .insert({
-      bot_chat_id: entry.bot_chat_id ?? null,
-      secret_prefix: entry.secret_prefix ?? null,
-      ip: entry.ip ?? null,
-      user_agent: entry.user_agent ?? null,
-      sender: entry.sender ?? null,
-      outcome: entry.outcome,
-      amount: entry.amount ?? null,
-    })
-    .then(({ error }) => {
-      if (error) console.error("sms-ingest log insert error:", error);
-    });
+  try {
+    const { error } = await supabaseAdmin
+      .from("sms_ingest_logs")
+      .insert({
+        bot_chat_id: entry.bot_chat_id ?? null,
+        secret_prefix: entry.secret_prefix ?? null,
+        ip: entry.ip ?? null,
+        user_agent: entry.user_agent ?? null,
+        sender: entry.sender ?? null,
+        outcome: entry.outcome,
+        amount: entry.amount ?? null,
+      });
+    if (error) console.error("sms-ingest log insert error:", error);
+  } catch (e) {
+    console.error("sms-ingest log insert error:", e);
+  }
 }
 
 // Generic HTTP ingest for Android SMS forwarders (SMS Telebot, MacroDroid, …).
@@ -89,6 +94,20 @@ function logAttempt(
 // Only the bank-SMS approval path exists here — nothing is ever auto-logged.
 // Every attempt is written to sms_ingest_logs (audit + sliding-window rate limit).
 serve(async (req) => {
+  // Browser-based senders (MacroDroid HTTP action, Tasker plugins) send an
+  // OPTIONS preflight for JSON POSTs — answer it or they cannot call us at all.
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Max-Age": "86400",
+      },
+    });
+  }
+
   if (req.method === "GET") {
     return jsonResponse({ ok: true, hint: "POST JSON: { secret, sender, text }" });
   }
@@ -116,7 +135,7 @@ serve(async (req) => {
     const secret = firstString(payload.secret) ?? secretParam;
     // Reject anything shorter than the real secrets before hitting the DB.
     if (!secret || secret.length < 8) {
-      logAttempt(admin, { outcome: "unauthorized", secret_prefix: secret ? secret.slice(0, 8) : null, ...meta });
+      await logAttempt(admin, { outcome: "unauthorized", secret_prefix: secret ? secret.slice(0, 8) : null, ...meta });
       return jsonResponse({ ok: false, error: "Unauthorized" }, 401);
     }
 
@@ -127,7 +146,7 @@ serve(async (req) => {
       .maybeSingle();
 
     if (rowError || !row) {
-      logAttempt(admin, { outcome: "unauthorized", secret_prefix: secret.slice(0, 8), ...meta });
+      await logAttempt(admin, { outcome: "unauthorized", secret_prefix: secret.slice(0, 8), ...meta });
       return jsonResponse({ ok: false, error: "Unauthorized" }, 401);
     }
     const bot = row as BotChatRow;
@@ -141,7 +160,7 @@ serve(async (req) => {
       .gte("created_at", windowStart);
     if (countError) console.error("sms-ingest rate-limit count error:", countError);
     if (!countError && (recentAttempts ?? 0) >= 30) {
-      logAttempt(admin, { bot_chat_id: bot.id, outcome: "rate_limited", ...meta });
+      await logAttempt(admin, { bot_chat_id: bot.id, outcome: "rate_limited", ...meta });
       return jsonResponse({ ok: false, error: "Rate limit exceeded" }, 429);
     }
 
@@ -160,13 +179,13 @@ serve(async (req) => {
 
     if (!isBankSmsLike(composed)) {
       // Not a transaction alert — ack so the forwarder does not retry forever.
-      logAttempt(admin, { bot_chat_id: bot.id, outcome: "not_sms", sender: senderLog, ...meta });
+      await logAttempt(admin, { bot_chat_id: bot.id, outcome: "not_sms", sender: senderLog, ...meta });
       return jsonResponse({ ok: true, added: false, reason: "not a bank transaction SMS" });
     }
 
     const parsedSms = parseBankSmsTransaction(composed);
     if (!parsedSms) {
-      logAttempt(admin, { bot_chat_id: bot.id, outcome: "not_transaction", sender: senderLog, ...meta });
+      await logAttempt(admin, { bot_chat_id: bot.id, outcome: "not_transaction", sender: senderLog, ...meta });
       return jsonResponse({ ok: true, added: false, reason: "could not parse a completed transaction (OTP, failed or promotional alert?)" });
     }
 
@@ -178,7 +197,7 @@ serve(async (req) => {
       .eq("source_fingerprint", sourceFingerprint)
       .maybeSingle();
     if (alreadySeen) {
-      logAttempt(admin, {
+      await logAttempt(admin, {
         bot_chat_id: bot.id,
         outcome: "duplicate",
         sender: senderLog,
@@ -205,7 +224,7 @@ serve(async (req) => {
     });
 
     if (pendingError?.code === "23505") {
-      logAttempt(admin, {
+      await logAttempt(admin, {
         bot_chat_id: bot.id,
         outcome: "duplicate",
         sender: senderLog,
@@ -216,7 +235,7 @@ serve(async (req) => {
     }
     if (pendingError) {
       console.error("sms-ingest pending SMS insert error:", pendingError);
-      logAttempt(admin, {
+      await logAttempt(admin, {
         bot_chat_id: bot.id,
         outcome: "error",
         sender: senderLog,
@@ -226,7 +245,7 @@ serve(async (req) => {
       return jsonResponse({ ok: false, error: "Could not save for review" }, 500);
     }
 
-    logAttempt(admin, {
+    await logAttempt(admin, {
       bot_chat_id: bot.id,
       outcome: "enqueued",
       sender: senderLog,
@@ -246,7 +265,7 @@ serve(async (req) => {
   } catch (error) {
     console.error("sms-ingest error:", error);
     if (supabaseAdmin) {
-      logAttempt(supabaseAdmin, { outcome: "error", ...meta });
+      await logAttempt(supabaseAdmin, { outcome: "error", ...meta });
     }
     return jsonResponse({ ok: false, error: "Internal error" }, 500);
   }
