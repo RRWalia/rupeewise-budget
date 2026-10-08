@@ -73,10 +73,40 @@ const Approvals = () => {
   useEffect(() => {
     loadPending();
     const onFocus = () => loadPending();
-    const refreshTimer = window.setInterval(loadPending, 30_000);
     window.addEventListener('focus', onFocus);
+
+    // Realtime: new forwarded SMS appears instantly, no refresh needed.
+    // A slow polling fallback only kicks in if the socket drops.
+    let channel: ReturnType<typeof supabase.channel> | undefined;
+    let pollTimer: ReturnType<typeof setInterval> | undefined;
+    let cancelled = false;
+
+    const startPolling = () => {
+      if (!pollTimer) pollTimer = setInterval(loadPending, 30_000);
+    };
+
+    const subscribe = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || cancelled) return;
+      channel = supabase
+        .channel(`approvals-${user.id}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'pending_transactions', filter: `user_id=eq.${user.id}` },
+          () => { void loadPending(); },
+        )
+        .subscribe((status) => {
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            startPolling();
+          }
+        });
+    };
+    void subscribe();
+
     return () => {
-      window.clearInterval(refreshTimer);
+      cancelled = true;
+      if (pollTimer) clearInterval(pollTimer);
+      if (channel) supabase.removeChannel(channel);
       window.removeEventListener('focus', onFocus);
     };
   }, [loadPending]);
