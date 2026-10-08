@@ -31,6 +31,12 @@ async function copyText(value: string): Promise<boolean> {
   }
 }
 
+/** Wrap a CSV field in double quotes when it contains commas, quotes or newlines. */
+function csvCell(value: string | null | undefined): string {
+  const text = value ?? '';
+  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
 type BotChat = {
   id: string;
   status: string;
@@ -48,6 +54,7 @@ const Settings = () => {
   const [token, setToken] = useState('');
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const { toast } = useToast();
 
   const loadBotChat = useCallback(async () => {
@@ -124,6 +131,57 @@ const Settings = () => {
       toast({ title: 'Ingest URL copied', description: 'Paste it into your SMS forwarder app as the webhook/URL destination.' });
     } catch {
       toast({ title: 'Copy failed', description: url, variant: 'destructive' });
+    }
+  };
+
+  const handleExportCsv = async () => {
+    setExporting(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({ title: 'Not signed in', description: 'Sign in again to export your transactions.', variant: 'destructive' });
+        return;
+      }
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('date,type,category,amount,payment_mode,note')
+        .eq('user_id', user.id)
+        .order('date', { ascending: false })
+        .limit(20000);
+      if (error) {
+        toast({ title: 'Export failed', description: error.message, variant: 'destructive' });
+        return;
+      }
+      const rows = data ?? [];
+      const header = 'Date,Type,Category,Amount,Payment Mode,Note';
+      const lines = rows.map((t) =>
+        [
+          csvCell(t.date),
+          csvCell(t.type),
+          csvCell(t.category),
+          String(t.amount ?? ''),
+          csvCell(t.payment_mode),
+          csvCell(t.note),
+        ].join(',')
+      );
+      const csv = '﻿' + [header, ...lines].join('\r\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const now = new Date();
+      const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      link.href = url;
+      link.download = `rupeewise-transactions-${yearMonth}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast({ title: 'Export ready', description: `${rows.length} transaction${rows.length === 1 ? '' : 's'} downloaded.` });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to export transactions';
+      toast({ title: 'Export failed', description: message, variant: 'destructive' });
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -276,6 +334,24 @@ const Settings = () => {
             ) : (
               <p className="text-xs font-medium text-muted-foreground">Connect your Telegram bot above before setting up forwarding.</p>
             )}
+          </CardContent>
+        </Card>
+
+        <Card className="mt-5">
+          <CardHeader className="space-y-1">
+            <CardTitle className="flex items-center gap-2 text-xl font-display">
+              <Download className="h-5 w-5" />
+              Export data
+            </CardTitle>
+            <CardDescription>
+              Download all your transactions as a CSV for spreadsheets or tax filing.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={handleExportCsv} disabled={exporting} variant="outline">
+              {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+              Download CSV
+            </Button>
           </CardContent>
         </Card>
       </motion.div>
