@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { Home, PieChart, Plus, Settings, Inbox } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { usePendingApprovalsCount } from '@/hooks/usePendingApprovalsCount';
 
 interface BottomNavProps {
   onAddClick: () => void;
@@ -17,12 +18,14 @@ const navItems = [
 export function BottomNav({ onAddClick }: BottomNavProps) {
   const location = useLocation();
   const navigate = useNavigate();
+  const pendingCount = usePendingApprovalsCount();
 
   const renderItem = ({ path, ...item }: typeof navItems[number]) => (
     <NavItem
       key={path}
       {...item}
       isActive={location.pathname === path}
+      badge={path === '/approvals' ? pendingCount : 0}
       onClick={() => navigate(path)}
     />
   );
@@ -62,21 +65,32 @@ interface NavItemProps {
   icon: React.ElementType;
   label: string;
   isActive: boolean;
+  badge?: number;
   onClick: () => void;
 }
 
-function NavItem({ icon: Icon, label, isActive, onClick }: NavItemProps) {
+function NavItem({ icon: Icon, label, isActive, badge = 0, onClick }: NavItemProps) {
   return (
     <button
       onClick={onClick}
-      aria-label={label}
+      aria-label={badge > 0 ? `${label}, ${badge} pending` : label}
       aria-current={isActive ? 'page' : undefined}
       className={cn(
         'relative flex min-w-0 flex-col items-center gap-1 px-1 py-3 transition-colors',
         isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
       )}
     >
-      <Icon className={cn('h-5 w-5', isActive && 'stroke-[2.5]')} />
+      <span className="relative">
+        <Icon className={cn('h-5 w-5', isActive && 'stroke-[2.5]')} />
+        {badge > 0 && (
+          <span
+            aria-hidden="true"
+            className="absolute -right-2.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold leading-none text-destructive-foreground"
+          >
+            {badge > 99 ? '99+' : badge}
+          </span>
+        )}
+      </span>
       <span className={cn('text-[10px] leading-none', isActive ? 'font-semibold' : 'font-medium')}>{label}</span>
       {isActive && (
         <motion.div
