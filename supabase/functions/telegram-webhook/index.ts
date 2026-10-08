@@ -1,13 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { isBankSmsLike } from "../_shared/sms-parser.ts";
-import { enqueuePendingSms, categorizeWithAI } from "../_shared/sms-enqueue.ts";
+import { isBankSmsLike, parseBankSmsTransaction } from "../_shared/sms-parser.ts";
+import { categorizeWithAI, MAX_AMOUNT, smsFingerprint } from "../_shared/sms-ingest-core.ts";
 
 const TELEGRAM_API = "https://api.telegram.org";
 
 const incomeKeywords = /\b(salary|received|got paid|paycheck|paycheque|freelance(?:\s+pay(?:ment)?)?|income|refund|cashback|credited|bonus|interest earned)\b/i;
-
-const MAX_AMOUNT = 100_000_000; // ₹10 crore — sanity ceiling for a personal tracker.
 
 type BotChatRow = {
   id: string;
@@ -146,39 +144,71 @@ serve(async (req) => {
     }
 
     if (isBankSmsLike(text)) {
-      const result = await enqueuePendingSms(
-        supabaseAdmin,
-        { id: bot.id, user_id: bot.user_id },
-        text,
-        { telegramMessageId: message.message_id ?? null },
-      );
-
-      switch (result.kind) {
-        case "not_transaction":
-          await send("I recognized a forwarded bank SMS, but it does not look like a completed transaction. Nothing was added.");
-          return okResponse();
-        case "not_sms_like":
-          // Fall through to normal chat parsing (shouldn't happen here because of isBankSmsLike guard).
-          break;
-        case "already_pending":
-          await send("This SMS is already waiting for your review in RupeeWise → Approvals. Nothing has been added yet.");
-          return okResponse();
-        case "already_reviewed":
-          await send("This SMS has already been reviewed, so it was not added again.");
-          return okResponse();
-        case "insert_failed":
-          await send("I couldn't save this SMS for review. Nothing was added; please forward it again or add it in the app.");
-          return okResponse();
-        case "enqueued": {
-          const label = result.note || result.parsed.merchant;
-          await send(
-            `🔎 SMS found: ${result.parsed.type === "income" ? "income" : "expense"} — ${label}, ₹${result.parsed.amount.toLocaleString("en-IN")} · suggested ${result.category}` +
-              (result.guessed ? " (best guess)" : "") +
-              "\nNot added yet. Review, edit, approve or dismiss it in RupeeWise → Approvals."
-          );
-          return okResponse();
-        }
+      const parsedSms = parseBankSmsTransaction(text);
+      if (!parsedSms) {
+        await send("I recognized a forwarded bank SMS, but it does not look like a completed transaction. Nothing was added.");
+        return okResponse();
       }
+
+      const sourceFingerprint = await smsFingerprint(bot.user_id, parsedSms.sender, parsedSms.fingerprintText);
+      const { data: alreadySeen } = await supabaseAdmin
+        .from("pending_transactions")
+        .select("status")
+        .eq("user_id", bot.user_id)
+        .eq("source_fingerprint", sourceFingerprint)
+        .maybeSingle();
+      if (alreadySeen) {
+        await send(alreadySeen.status === "pending"
+          ? "This SMS is already waiting for your review in RupeeWise → Approvals. Nothing has been added yet."
+          : "This SMS has already been reviewed, so it was not added again.");
+        return okResponse();
+      }
+
+      const { category, note, guessed } = await categorizeWithAI(parsedSms.merchant, parsedSms.type);
+      const { error: pendingError } = await supabaseAdmin.from("pending_transactions").insert({
+        user_id: bot.user_id,
+        bot_chat_id: bot.id,
+        telegram_message_id: message.message_id ?? null,
+        source_fingerprint: sourceFingerprint,
+        source_sender: parsedSms.sender,
+        amount: parsedSms.amount,
+        type: parsedSms.type,
+        category,
+        category_guessed: guessed,
+        payment_mode: parsedSms.paymentMode,
+        date: parsedSms.date,
+        note: note || parsedSms.merchant,
+      });
+
+      if (pendingError?.code === "23505") {
+        const { data: duplicate } = await supabaseAdmin
+          .from("pending_transactions")
+          .select("status")
+          .eq("user_id", bot.user_id)
+          .eq("source_fingerprint", sourceFingerprint)
+          .maybeSingle();
+        const messageText = duplicate?.status === "pending"
+          ? "This SMS is already waiting for your review in RupeeWise → Approvals. Nothing has been added yet."
+          : duplicate
+            ? "This SMS has already been reviewed, so it was not added again."
+            : "This SMS was already received. Check RupeeWise → Approvals; no duplicate was added.";
+        await send(messageText);
+        return okResponse();
+      }
+
+      if (pendingError) {
+        console.error("telegram-webhook pending SMS insert error:", pendingError);
+        await send("I couldn't save this SMS for review. Nothing was added; please forward it again or add it in the app.");
+        return okResponse();
+      }
+
+      const label = note || parsedSms.merchant;
+      await send(
+        `🔎 SMS found: ${parsedSms.type === "income" ? "income" : "expense"} — ${label}, ₹${parsedSms.amount.toLocaleString("en-IN")} · suggested ${category}` +
+          (guessed ? " (best guess)" : "") +
+          "\nNot added yet. Review, edit, approve or dismiss it in RupeeWise → Approvals."
+      );
+      return okResponse();
     }
 
     if (command.startsWith("/")) {

@@ -14,7 +14,7 @@ verify_jwt = true
 [functions.telegram-webhook]
 verify_jwt = false
 
-# Android SMS forwarders POST here with the user's webhook_secret. No JWT
-# possible; the per-user unguessable webhook_secret authenticates the call.
+# Android SMS forwarders (SMS Telebot, MacroDroid, …) call this endpoint — no JWT
+# possible; secured by the same unguessable per-connection secret as the webhook.
 [functions.sms-ingest]
 verify_jwt = false

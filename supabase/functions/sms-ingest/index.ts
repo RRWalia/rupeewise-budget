@@ -1,169 +1,253 @@
-// Generic HTTP ingest endpoint for Android SMS forwarders (SMS Telebot,
-// MacroDroid, "Incoming SMS to URL Forwarder" from F-Droid, etc.).
-//
-// The forwarder POSTs JSON:
-//   { "secret": "<your webhook_secret>", "sender": "HDFCBK", "text": "Rs.150 debited..." }
-//
-// We look up the bot_chats row by the (unguessable) webhook_secret, run the
-// same SMS parser + AI categorizer used by the Telegram webhook, and enqueue
-// a pending_transactions row that shows up in Approvals.
-//
-// This endpoint does NOT require a JWT (the forwarder has no Supabase session).
-// It is secured purely by the per-user webhook_secret, which is unique per
-// bot connection and shown only to the connected user in Settings.
-//
-// Accepts application/json or application/x-www-form-urlencoded. Also allows
-// sender/text as query params for very simple forwarders.
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { composeForwardedSmsText } from "../_shared/sms-parser.ts";
-import { createAdminClient, enqueuePendingSms } from "../_shared/sms-enqueue.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { isBankSmsLike, parseBankSmsTransaction } from "../_shared/sms-parser.ts";
+import { categorizeWithAI, composeIngestText, smsFingerprint } from "../_shared/sms-ingest-core.ts";
 
-const MAX_BODY_BYTES = 16 * 1024; // 16 KiB is plenty for an SMS.
+type BotChatRow = {
+  id: string;
+  user_id: string;
+  status: string;
+  webhook_secret: string;
+};
+
+type IngestOutcome =
+  | "enqueued"
+  | "duplicate"
+  | "not_sms"
+  | "not_transaction"
+  | "unauthorized"
+  | "rate_limited"
+  | "error";
 
 type IngestPayload = {
   secret?: unknown;
   sender?: unknown;
-  text?: unknown;
-  // Common alternative names used by forwarder apps — accept them all.
   from?: unknown;
-  address?: unknown;
-  message?: unknown;
+  text?: unknown;
   body?: unknown;
+  message?: unknown;
 };
 
-function jsonResponse(status: number, body: Record<string, unknown>): Response {
-  return new Response(JSON.stringify(body), {
+type IngestLogEntry = {
+  bot_chat_id?: string | null;
+  secret_prefix?: string | null;
+  ip?: string | null;
+  user_agent?: string | null;
+  sender?: string | null;
+  outcome: IngestOutcome;
+  amount?: number | null;
+};
+
+function jsonResponse(payload: Record<string, unknown>, status = 200) {
+  return new Response(JSON.stringify(payload), {
     status,
     headers: { "Content-Type": "application/json" },
   });
 }
 
-function asString(v: unknown): string | null {
-  if (typeof v !== "string") return null;
-  const trimmed = v.trim();
-  return trimmed.length > 0 ? trimmed : null;
+function firstString(...values: unknown[]): string | null {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return null;
 }
 
-async function readPayload(req: Request): Promise<IngestPayload> {
-  const url = new URL(req.url);
-  const fromQuery: IngestPayload = {
-    secret: url.searchParams.get("secret"),
-    sender: url.searchParams.get("sender") ?? url.searchParams.get("from"),
-    text: url.searchParams.get("text") ?? url.searchParams.get("message") ?? url.searchParams.get("body"),
+function requestMeta(req: Request): { ip: string | null; user_agent: string | null } {
+  const forwarded = req.headers.get("x-forwarded-for");
+  const ipValue = (forwarded ? forwarded.split(",")[0] : (req.headers.get("x-real-ip") ?? "")).trim();
+  const userAgent = req.headers.get("user-agent");
+  return {
+    ip: ipValue ? ipValue.slice(0, 64) : null,
+    user_agent: userAgent ? userAgent.slice(0, 200) : null,
   };
-
-  const contentType = (req.headers.get("content-type") ?? "").toLowerCase();
-
-  try {
-    if (contentType.includes("application/json")) {
-      const cloned = req.clone();
-      const json = await cloned.json() as IngestPayload;
-      return { ...fromQuery, ...json };
-    }
-    if (contentType.includes("application/x-www-form-urlencoded") || contentType.includes("multipart/form-data")) {
-      const form = await req.clone().formData();
-      return {
-        secret: fromQuery.secret ?? form.get("secret"),
-        sender: fromQuery.sender ?? form.get("sender") ?? form.get("from") ?? form.get("address"),
-        text: fromQuery.text ?? form.get("text") ?? form.get("message") ?? form.get("body"),
-      };
-    }
-  } catch {
-    // Fall through to query-only.
-  }
-
-  return fromQuery;
 }
 
-serve(async (req) => {
-  // Lightweight CORS — browser-based senders (MacroDroid HTTP action, custom
-  // tasker plugins) often send an OPTIONS preflight.
-  if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 204,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        "Access-Control-Max-Age": "86400",
-      },
+// Fire-and-forget: a logging failure must never break the ingest request.
+function logAttempt(
+  supabaseAdmin: ReturnType<typeof createClient>,
+  entry: IngestLogEntry
+) {
+  supabaseAdmin
+    .from("sms_ingest_logs")
+    .insert({
+      bot_chat_id: entry.bot_chat_id ?? null,
+      secret_prefix: entry.secret_prefix ?? null,
+      ip: entry.ip ?? null,
+      user_agent: entry.user_agent ?? null,
+      sender: entry.sender ?? null,
+      outcome: entry.outcome,
+      amount: entry.amount ?? null,
+    })
+    .then(({ error }) => {
+      if (error) console.error("sms-ingest log insert error:", error);
     });
-  }
+}
 
+// Generic HTTP ingest for Android SMS forwarders (SMS Telebot, MacroDroid, …).
+// Secured by the same unguessable per-connection secret as the Telegram webhook:
+// callers POST { secret, sender, text } (or ?s=<secret> plus the same body fields).
+// Only the bank-SMS approval path exists here — nothing is ever auto-logged.
+// Every attempt is written to sms_ingest_logs (audit + sliding-window rate limit).
+serve(async (req) => {
   if (req.method === "GET") {
-    return jsonResponse(200, { ok: true, service: "rupeewise-sms-ingest" });
+    return jsonResponse({ ok: true, hint: "POST JSON: { secret, sender, text }" });
   }
-  if (req.method !== "POST") {
-    return jsonResponse(405, { error: "Method not allowed" });
-  }
+  if (req.method !== "POST") return jsonResponse({ ok: false, error: "Method not allowed" }, 405);
 
-  // Cap body size so a misconfigured forwarder cannot POST a huge blob.
-  if (req.headers.get("content-length") && Number(req.headers.get("content-length")) > MAX_BODY_BYTES) {
-    return jsonResponse(413, { error: "Payload too large" });
-  }
+  const meta = requestMeta(req);
+  let supabaseAdmin: ReturnType<typeof createClient> | null = null;
 
   try {
-    const payload = await readPayload(req);
+    const secretParam = new URL(req.url).searchParams.get("s");
 
-    const secret = asString(payload.secret);
-    if (!secret) {
-      return jsonResponse(401, { error: "Missing secret" });
+    let payload: IngestPayload = {};
+    try {
+      payload = await req.json() as IngestPayload;
+    } catch {
+      return jsonResponse({ ok: false, error: "Expected JSON body" }, 400);
     }
 
-    const rawText = asString(payload.text) ?? asString(payload.message) ?? asString(payload.body);
-    if (!rawText) {
-      return jsonResponse(400, { error: "Missing text" });
+    supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
+    const admin = supabaseAdmin;
+
+    const secret = firstString(payload.secret) ?? secretParam;
+    // Reject anything shorter than the real secrets before hitting the DB.
+    if (!secret || secret.length < 8) {
+      logAttempt(admin, { outcome: "unauthorized", secret_prefix: secret ? secret.slice(0, 8) : null, ...meta });
+      return jsonResponse({ ok: false, error: "Unauthorized" }, 401);
     }
 
-    const sender = asString(payload.sender) ?? asString(payload.from) ?? asString(payload.address);
-    const text = composeForwardedSmsText(sender, rawText);
-
-    const supabase = createAdminClient();
-
-    const { data: bot, error: botError } = await supabase
+    const { data: row, error: rowError } = await admin
       .from("bot_chats")
-      .select("id, user_id, status")
+      .select("id, user_id, status, webhook_secret")
       .eq("webhook_secret", secret)
       .maybeSingle();
 
-    if (botError || !bot) {
-      return jsonResponse(401, { error: "Unauthorized" });
+    if (rowError || !row) {
+      logAttempt(admin, { outcome: "unauthorized", secret_prefix: secret.slice(0, 8), ...meta });
+      return jsonResponse({ ok: false, error: "Unauthorized" }, 401);
     }
+    const bot = row as BotChatRow;
+
+    // Sliding-window rate limit: at most 30 attempts per bot per 60 seconds.
+    const windowStart = new Date(Date.now() - 60_000).toISOString();
+    const { count: recentAttempts, error: countError } = await admin
+      .from("sms_ingest_logs")
+      .select("id", { count: "exact", head: true })
+      .eq("bot_chat_id", bot.id)
+      .gte("created_at", windowStart);
+    if (countError) console.error("sms-ingest rate-limit count error:", countError);
+    if (!countError && (recentAttempts ?? 0) >= 30) {
+      logAttempt(admin, { bot_chat_id: bot.id, outcome: "rate_limited", ...meta });
+      return jsonResponse({ ok: false, error: "Rate limit exceeded" }, 429);
+    }
+
     if (bot.status !== "active") {
-      return jsonResponse(403, { error: "Bot not connected" });
+      return jsonResponse({ ok: false, error: "Telegram bot not connected yet. Finish setup in RupeeWise → Settings." }, 403);
     }
 
-    const result = await enqueuePendingSms(
-      supabase,
-      { id: bot.id, user_id: bot.user_id },
-      text,
-    );
+    const text = firstString(payload.text, payload.body, payload.message);
+    if (!text) return jsonResponse({ ok: false, error: "Missing text field" }, 400);
 
-    switch (result.kind) {
-      case "not_sms_like":
-        return jsonResponse(422, { ok: false, error: "Not recognized as a bank SMS" });
-      case "not_transaction":
-        return jsonResponse(422, { ok: false, error: "Recognized but not a completed debit/credit (OTP? failed? promo?)" });
-      case "already_pending":
-        return jsonResponse(200, { ok: true, queued: false, status: "already_pending" });
-      case "already_reviewed":
-        return jsonResponse(200, { ok: true, queued: false, status: "already_reviewed" });
-      case "insert_failed":
-        return jsonResponse(500, { ok: false, error: result.message });
-      case "enqueued":
-        return jsonResponse(200, {
-          ok: true,
-          queued: true,
-          amount: result.parsed.amount,
-          type: result.parsed.type,
-          merchant: result.parsed.merchant,
-          category: result.category,
-          date: result.parsed.date,
-        });
+    const sender = firstString(payload.sender, payload.from);
+    const senderLog = sender ? sender.slice(0, 40) : null;
+    // Cap the raw SMS text before composing so a huge forward cannot bloat us.
+    const rawText = text.slice(0, 2000);
+    const composed = composeIngestText(sender, rawText);
+
+    if (!isBankSmsLike(composed)) {
+      // Not a transaction alert — ack so the forwarder does not retry forever.
+      logAttempt(admin, { bot_chat_id: bot.id, outcome: "not_sms", sender: senderLog, ...meta });
+      return jsonResponse({ ok: true, added: false, reason: "not a bank transaction SMS" });
     }
-  } catch (err) {
-    console.error("sms-ingest error:", err);
-    return jsonResponse(500, { error: "Internal error" });
+
+    const parsedSms = parseBankSmsTransaction(composed);
+    if (!parsedSms) {
+      logAttempt(admin, { bot_chat_id: bot.id, outcome: "not_transaction", sender: senderLog, ...meta });
+      return jsonResponse({ ok: true, added: false, reason: "could not parse a completed transaction (OTP, failed or promotional alert?)" });
+    }
+
+    const sourceFingerprint = await smsFingerprint(bot.user_id, parsedSms.sender, parsedSms.fingerprintText);
+    const { data: alreadySeen } = await admin
+      .from("pending_transactions")
+      .select("status")
+      .eq("user_id", bot.user_id)
+      .eq("source_fingerprint", sourceFingerprint)
+      .maybeSingle();
+    if (alreadySeen) {
+      logAttempt(admin, {
+        bot_chat_id: bot.id,
+        outcome: "duplicate",
+        sender: senderLog,
+        amount: parsedSms.amount,
+        ...meta,
+      });
+      return jsonResponse({ ok: true, added: false, reason: alreadySeen.status === "pending" ? "already awaiting review" : "already reviewed" });
+    }
+
+    const { category, note, guessed } = await categorizeWithAI(parsedSms.merchant, parsedSms.type);
+    const { error: pendingError } = await admin.from("pending_transactions").insert({
+      user_id: bot.user_id,
+      bot_chat_id: bot.id,
+      telegram_message_id: null,
+      source_fingerprint: sourceFingerprint,
+      source_sender: parsedSms.sender,
+      amount: parsedSms.amount,
+      type: parsedSms.type,
+      category,
+      category_guessed: guessed,
+      payment_mode: parsedSms.paymentMode,
+      date: parsedSms.date,
+      note: note || parsedSms.merchant,
+    });
+
+    if (pendingError?.code === "23505") {
+      logAttempt(admin, {
+        bot_chat_id: bot.id,
+        outcome: "duplicate",
+        sender: senderLog,
+        amount: parsedSms.amount,
+        ...meta,
+      });
+      return jsonResponse({ ok: true, added: false, reason: "already received" });
+    }
+    if (pendingError) {
+      console.error("sms-ingest pending SMS insert error:", pendingError);
+      logAttempt(admin, {
+        bot_chat_id: bot.id,
+        outcome: "error",
+        sender: senderLog,
+        amount: parsedSms.amount,
+        ...meta,
+      });
+      return jsonResponse({ ok: false, error: "Could not save for review" }, 500);
+    }
+
+    logAttempt(admin, {
+      bot_chat_id: bot.id,
+      outcome: "enqueued",
+      sender: senderLog,
+      amount: parsedSms.amount,
+      ...meta,
+    });
+
+    return jsonResponse({
+      ok: true,
+      added: true,
+      type: parsedSms.type,
+      amount: parsedSms.amount,
+      category,
+      guessed,
+      date: parsedSms.date,
+    });
+  } catch (error) {
+    console.error("sms-ingest error:", error);
+    if (supabaseAdmin) {
+      logAttempt(supabaseAdmin, { outcome: "error", ...meta });
+    }
+    return jsonResponse({ ok: false, error: "Internal error" }, 500);
   }
 });

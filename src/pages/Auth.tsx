@@ -479,7 +479,9 @@ const Auth = () => {
               </div>
             </div>
 
-            {/* Google Sign In — works everywhere via direct Supabase OAuth redirect. */}
+            {/* Google Sign In — only offered where OAuth can complete (Lovable-hosted surfaces).
+                Self-hosted copies get an honest note instead of a button that would bounce
+                cross-domain mid-login. Email/password above works everywhere. */}
             <Button type="button" variant="outline" className="w-full" size="lg" onClick={handleGoogleSignIn} disabled={loading || googleLoading}>
                 {googleLoading ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

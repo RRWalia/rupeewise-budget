@@ -1,12 +1,41 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Bot, Loader2, MessageSquare, CheckCircle2, XCircle, ExternalLink, Trash2, Smartphone, ShieldCheck, Copy, Check } from 'lucide-react';
+import { Bot, Loader2, MessageSquare, CheckCircle2, XCircle, ExternalLink, Trash2, Smartphone, ShieldCheck, Copy, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useSharedTransactions } from '@/contexts/TransactionsContext';
+
+/** navigator.clipboard fails silently in some older Android WebViews — fall back to execCommand. */
+async function copyText(value: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(value);
+    return true;
+  } catch {
+    try {
+      const textarea = document.createElement('textarea');
+      textarea.value = value;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(textarea);
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+}
+
+/** Wrap a CSV field in double quotes when it contains commas, quotes or newlines. */
+function csvCell(value: string | null | undefined): string {
+  const text = value ?? '';
+  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
 
 type BotChat = {
   id: string;
@@ -17,19 +46,16 @@ type BotChat = {
   created_at: string;
 };
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? 'https://cuvhhjkhebfpnrixmxxq.supabase.co';
+
 const Settings = () => {
   const [botChat, setBotChat] = useState<BotChat | null>(null);
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState('');
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
-  const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
   const { toast } = useToast();
-
-  const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? 'https://cuvhhjkhebfpnrixmxxq.supabase.co';
-  const ingestUrl = botChat?.webhook_secret
-    ? `${supabaseUrl}/functions/v1/sms-ingest`
-    : null;
 
   const loadBotChat = useCallback(async () => {
     const { data, error } = await supabase
@@ -97,20 +123,67 @@ const Settings = () => {
     }
   };
 
-  const handleCopy = async (field: string, value: string, label: string) => {
+  const handleCopyIngestUrl = async () => {
+    if (!botChat?.webhook_secret) return;
+    const url = `${SUPABASE_URL}/functions/v1/sms-ingest?s=${botChat.webhook_secret}`;
     try {
-      await navigator.clipboard.writeText(value);
-      setCopiedField(field);
-      toast({ title: `${label} copied` });
-      setTimeout(() => setCopiedField((f) => (f === field ? null : f)), 1800);
+      await navigator.clipboard.writeText(url);
+      toast({ title: 'Ingest URL copied', description: 'Paste it into your SMS forwarder app as the webhook/URL destination.' });
     } catch {
-      toast({ title: 'Copy failed', description: 'Please copy manually', variant: 'destructive' });
+      toast({ title: 'Copy failed', description: url, variant: 'destructive' });
     }
   };
 
-  const samplePayload = botChat?.webhook_secret
-    ? JSON.stringify({ secret: botChat.webhook_secret, sender: 'HDFCBK', text: 'Rs.150 debited...' }, null, 2)
-    : null;
+  const handleExportCsv = async () => {
+    setExporting(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({ title: 'Not signed in', description: 'Sign in again to export your transactions.', variant: 'destructive' });
+        return;
+      }
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('date,type,category,amount,payment_mode,note')
+        .eq('user_id', user.id)
+        .order('date', { ascending: false })
+        .limit(20000);
+      if (error) {
+        toast({ title: 'Export failed', description: error.message, variant: 'destructive' });
+        return;
+      }
+      const rows = data ?? [];
+      const header = 'Date,Type,Category,Amount,Payment Mode,Note';
+      const lines = rows.map((t) =>
+        [
+          csvCell(t.date),
+          csvCell(t.type),
+          csvCell(t.category),
+          String(t.amount ?? ''),
+          csvCell(t.payment_mode),
+          csvCell(t.note),
+        ].join(',')
+      );
+      const csv = '﻿' + [header, ...lines].join('\r\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const now = new Date();
+      const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      link.href = url;
+      link.download = `rupeewise-transactions-${yearMonth}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast({ title: 'Export ready', description: `${rows.length} transaction${rows.length === 1 ? '' : 's'} downloaded.` });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to export transactions';
+      toast({ title: 'Export failed', description: message, variant: 'destructive' });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const deepLink =
     botChat?.bot_username && botChat.bind_code
@@ -227,74 +300,33 @@ const Settings = () => {
               </p>
             </div>
             <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
-              <li>
-                <span className="font-medium text-foreground">Automatic (recommended on Android):</span> install a free SMS→HTTP forwarder such as <span className="font-medium">SMS Telebot</span> (GitHub), <span className="font-medium">MacroDroid</span> (Play Store, free tier) or <span className="font-medium">Incoming SMS to URL Forwarder</span> (F-Droid). Point it at the webhook URL below, include your secret, and filter bank sender IDs (e.g. HDFCBK, SBIINB, ICICIB, AXISBK, KMBANK, PYTM). Body filter: <span className="font-mono text-foreground">debited, credited</span>; exclude anything containing <span className="font-mono text-foreground">OTP</span>.
-              </li>
-              <li>
-                <span className="font-medium text-foreground">Manual (any phone, zero install):</span> long-press the bank SMS in your messaging app → Share/Forward → your Telegram bot. If the sender is lost, prefix the text with <span className="font-mono text-foreground">SMS:</span>.
-              </li>
-              <li>Matched debit and credit alerts appear in <span className="font-medium text-foreground">Approvals</span>. Check amount, date and suggested category, then approve, edit or dismiss. Nothing hits your ledger until you tap Approve.</li>
+              <li>Either auto-forward with the Android setup below, or manually long-press a bank alert in your SMS app and forward it to your connected Telegram bot.</li>
+              <li>Forward only transaction alerts from your bank sender IDs (for example, HDFCBK or SBIINB), preserving the amount, date and sender when possible. If the sender is omitted, prefix forwarded text with <span className="font-mono text-foreground">SMS:</span>.</li>
+              <li>Matched debit and credit alerts appear in <span className="font-medium text-foreground">Approvals</span>. Check the amount, date and suggested category, then approve, edit or dismiss.</li>
             </ol>
             <p className="text-xs text-muted-foreground">
-              Exclude OTPs, login codes and promotional messages in the forwarder. Identifiable OTP, failed and promotional alerts are also ignored server-side, but filtering them on your phone is safest. iPhone does not allow apps to read SMS in the background; use manual forwarding or statement import there.
+              Exclude OTPs, login codes and promotional messages in the forwarder. Identifiable OTP, failed and promotional alerts are ignored, but filtering them on your phone is safest. iPhone does not allow apps to read SMS in the background; use manual entry or statement import there.
             </p>
-
-            {botChat?.status === 'active' && ingestUrl && botChat.webhook_secret ? (
-              <div className="space-y-3 rounded-md border bg-muted/40 p-3">
-                <p className="text-xs font-semibold text-foreground">Auto-forward endpoint (Android HTTP forwarders)</p>
-                <div className="space-y-2">
-                  <div>
-                    <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">URL (POST)</label>
-                    <div className="mt-1 flex items-center gap-2">
-                      <code className="flex-1 truncate rounded-md bg-background px-2 py-1.5 font-mono text-xs">{ingestUrl}</code>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleCopy('url', ingestUrl, 'Endpoint URL')}
-                        aria-label="Copy endpoint URL"
-                      >
-                        {copiedField === 'url' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Secret (field name: <span className="font-mono">secret</span>)</label>
-                    <div className="mt-1 flex items-center gap-2">
-                      <code className="flex-1 truncate rounded-md bg-background px-2 py-1.5 font-mono text-xs">{botChat.webhook_secret}</code>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleCopy('secret', botChat.webhook_secret!, 'Webhook secret')}
-                        aria-label="Copy webhook secret"
-                      >
-                        {copiedField === 'secret' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">JSON body (example)</label>
-                    <div className="mt-1 flex items-start gap-2">
-                      <pre className="flex-1 overflow-x-auto rounded-md bg-background p-2 font-mono text-[11px] leading-relaxed">{samplePayload}</pre>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleCopy('payload', samplePayload!, 'Sample payload')}
-                        aria-label="Copy sample payload"
-                      >
-                        {copiedField === 'payload' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    Also accepted: <span className="font-mono">sender</span>/<span className="font-mono">text</span> as form fields or query parameters. The secret authenticates you — keep it private; rotate it by disconnecting and reconnecting the bot.
-                  </p>
+            {botChat?.status === 'active' && botChat.webhook_secret ? (
+              <div className="space-y-3 rounded-md border px-3 py-3">
+                <p className="text-sm font-medium">Auto-forward from Android (optional)</p>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  In an SMS-forwarding app such as <span className="font-medium text-foreground">SMS Telebot</span> or <span className="font-medium text-foreground">MacroDroid</span>, create a rule: trigger <span className="font-medium text-foreground">SMS received</span> from your bank sender IDs (e.g. HDFCBK, SBIINB) containing “debited” or “credited” (exclude “OTP”), and set the action to an <span className="font-medium text-foreground">HTTP POST</span> to this URL with the SMS text in a <span className="font-mono">text</span> field:
+                </p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 truncate rounded bg-muted px-2 py-1.5 text-[11px] text-muted-foreground">
+                    {SUPABASE_URL}/functions/v1/sms-ingest?s=•••{botChat.webhook_secret.slice(-4)}
+                  </code>
+                  <Button variant="outline" size="sm" onClick={handleCopyIngestUrl} className="shrink-0">
+                    <Copy className="mr-2 h-3.5 w-3.5" />
+                    Copy URL
+                  </Button>
                 </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  The URL contains your private ingest key — anyone with it can submit SMS for your review, so keep it to yourself. Matched alerts appear in <span className="font-medium text-foreground">Approvals</span> exactly like forwarded Telegram messages.
+                </p>
               </div>
             ) : null}
-
             {botChat?.status === 'active' ? (
               <Button asChild variant="outline">
                 <Link to="/approvals">Review pending SMS</Link>
@@ -302,6 +334,24 @@ const Settings = () => {
             ) : (
               <p className="text-xs font-medium text-muted-foreground">Connect your Telegram bot above before setting up forwarding.</p>
             )}
+          </CardContent>
+        </Card>
+
+        <Card className="mt-5">
+          <CardHeader className="space-y-1">
+            <CardTitle className="flex items-center gap-2 text-xl font-display">
+              <Download className="h-5 w-5" />
+              Export data
+            </CardTitle>
+            <CardDescription>
+              Download all your transactions as a CSV for spreadsheets or tax filing.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={handleExportCsv} disabled={exporting} variant="outline">
+              {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+              Download CSV
+            </Button>
           </CardContent>
         </Card>
       </motion.div>

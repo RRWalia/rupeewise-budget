@@ -52,6 +52,8 @@ export function brokeredPreviewStorage() {
       if (value !== undefined) msg['value'] = value;
       // targetOrigin per trusted editor origin, so a session token never reaches an arbitrary embedder.
       for (const origin of editorOrigins) window.parent.postMessage(msg, origin);
+      // Declared after `finish` so the closure can clear it on an early reply;
+      // a single assignment keeps prefer-const happy.
       const timer = setTimeout(() => finish(null), TIMEOUT);
     });
 
