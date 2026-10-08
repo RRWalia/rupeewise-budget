@@ -1,8 +1,6 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, lazy, Suspense } from 'react';
 import { Header } from '@/components/Header';
 import { SummaryCard } from '@/components/SummaryCard';
-import { SpendingPieChart } from '@/components/SpendingPieChart';
-import { SavingsTrendCard } from '@/components/SavingsTrendCard';
 import { AIInsightsCard } from '@/components/AIInsightsCard';
 import { RecentTransactions } from '@/components/RecentTransactions';
 import { EditTransactionDialog } from '@/components/EditTransactionDialog';
@@ -12,6 +10,24 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import type { Transaction } from '@/hooks/useTransactions';
 import { formatMonthLabel, getCurrentMonthKey, getRelativeMonthKey } from '@/lib/date';
 import { calculateTotals, calculateTrend, filterTransactionsByMonth } from '@/lib/finance';
+import { Card, CardContent } from '@/components/ui/card';
+import { Sparkles } from 'lucide-react';
+
+// Charts are the heaviest part of the bundle (recharts) — load them on demand.
+const SpendingPieChart = lazy(() =>
+  import('@/components/SpendingPieChart').then((m) => ({ default: m.SpendingPieChart }))
+);
+const SavingsTrendCard = lazy(() =>
+  import('@/components/SavingsTrendCard').then((m) => ({ default: m.SavingsTrendCard }))
+);
+
+const ChartLoader = () => (
+  <Card>
+    <CardContent className="flex h-64 items-center justify-center">
+      <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+    </CardContent>
+  </Card>
+);
 
 const Index = () => {
   const { transactions, loading, updateTransaction, deleteTransaction } = useSharedTransactions();
