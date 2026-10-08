@@ -16,123 +16,48 @@ export type Database = {
     Tables: {
       bot_chats: {
         Row: {
-          id: string
-          user_id: string
-          provider: string
-          status: string
-          chat_id: string | null
+          bind_code: string | null
           bot_token: string
           bot_username: string | null
-          bind_code: string | null
-          webhook_secret: string
-          last_transaction_id: string | null
+          chat_id: string | null
           created_at: string
+          id: string
+          last_transaction_id: string | null
+          provider: string
+          status: string
           updated_at: string
+          user_id: string
+          webhook_secret: string
         }
         Insert: {
-          id?: string
-          user_id: string
-          provider?: string
-          status?: string
-          chat_id?: string | null
+          bind_code?: string | null
           bot_token: string
           bot_username?: string | null
-          bind_code?: string | null
-          webhook_secret: string
-          last_transaction_id?: string | null
+          chat_id?: string | null
           created_at?: string
-          updated_at?: string
-        }
-        Update: {
           id?: string
-          user_id?: string
+          last_transaction_id?: string | null
           provider?: string
           status?: string
-          chat_id?: string | null
-          bot_token?: string
-          bot_username?: string | null
-          bind_code?: string | null
-          webhook_secret?: string
-          last_transaction_id?: string | null
-          created_at?: string
           updated_at?: string
-        }
-        Relationships: []
-      }
-      pending_transactions: {
-        Row: {
-          id: string
           user_id: string
-          bot_chat_id: string | null
-          source_fingerprint: string
-          telegram_message_id: number | null
-          source_sender: string | null
-          amount: number
-          date: string
-          category: string
-          category_guessed: boolean
-          payment_mode: string
-          note: string | null
-          type: string
-          status: string
-          transaction_id: string | null
-          created_at: string
-          decided_at: string | null
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          bot_chat_id?: string | null
-          source_fingerprint: string
-          telegram_message_id?: number | null
-          source_sender?: string | null
-          amount: number
-          date: string
-          category: string
-          category_guessed?: boolean
-          payment_mode?: string
-          note?: string | null
-          type: string
-          status?: string
-          transaction_id?: string | null
-          created_at?: string
-          decided_at?: string | null
+          webhook_secret: string
         }
         Update: {
-          id?: string
-          user_id?: string
-          bot_chat_id?: string | null
-          source_fingerprint?: string
-          telegram_message_id?: number | null
-          source_sender?: string | null
-          amount?: number
-          date?: string
-          category?: string
-          category_guessed?: boolean
-          payment_mode?: string
-          note?: string | null
-          type?: string
-          status?: string
-          transaction_id?: string | null
+          bind_code?: string | null
+          bot_token?: string
+          bot_username?: string | null
+          chat_id?: string | null
           created_at?: string
-          decided_at?: string | null
+          id?: string
+          last_transaction_id?: string | null
+          provider?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+          webhook_secret?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "pending_transactions_bot_chat_id_fkey"
-            columns: ["bot_chat_id"]
-            isOneToOne: false
-            referencedRelation: "bot_chats"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "pending_transactions_transaction_id_fkey"
-            columns: ["transaction_id"]
-            isOneToOne: false
-            referencedRelation: "transactions"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       budgets: {
         Row: {
@@ -196,6 +121,81 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      pending_transactions: {
+        Row: {
+          amount: number
+          bot_chat_id: string | null
+          category: string
+          category_guessed: boolean
+          created_at: string
+          date: string
+          decided_at: string | null
+          id: string
+          note: string | null
+          payment_mode: string
+          source_fingerprint: string
+          source_sender: string | null
+          status: string
+          telegram_message_id: number | null
+          transaction_id: string | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          bot_chat_id?: string | null
+          category: string
+          category_guessed?: boolean
+          created_at?: string
+          date: string
+          decided_at?: string | null
+          id?: string
+          note?: string | null
+          payment_mode?: string
+          source_fingerprint: string
+          source_sender?: string | null
+          status?: string
+          telegram_message_id?: number | null
+          transaction_id?: string | null
+          type: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          bot_chat_id?: string | null
+          category?: string
+          category_guessed?: boolean
+          created_at?: string
+          date?: string
+          decided_at?: string | null
+          id?: string
+          note?: string | null
+          payment_mode?: string
+          source_fingerprint?: string
+          source_sender?: string | null
+          status?: string
+          telegram_message_id?: number | null
+          transaction_id?: string | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_transactions_bot_chat_id_fkey"
+            columns: ["bot_chat_id"]
+            isOneToOne: false
+            referencedRelation: "bot_chats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_transactions_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       transaction_history: {
         Row: {
@@ -281,20 +281,18 @@ export type Database = {
     Functions: {
       approve_pending_transaction: {
         Args: {
+          p_amount?: number
+          p_category?: string
+          p_date?: string
+          p_note?: string
+          p_payment_mode?: string
           p_pending_id: string
-          p_amount?: number | null
-          p_type?: string | null
-          p_category?: string | null
-          p_date?: string | null
-          p_payment_mode?: string | null
-          p_note?: string | null
+          p_type?: string
         }
         Returns: string
       }
       dismiss_pending_transaction: {
-        Args: {
-          p_pending_id: string
-        }
+        Args: { p_pending_id: string }
         Returns: undefined
       }
     }
