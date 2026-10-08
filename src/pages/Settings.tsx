@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Bot, Loader2, MessageSquare, CheckCircle2, XCircle, ExternalLink, Trash2, Smartphone, ShieldCheck } from 'lucide-react';
+import { Bot, Loader2, MessageSquare, CheckCircle2, XCircle, ExternalLink, Trash2, Smartphone, ShieldCheck, Copy, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +13,7 @@ type BotChat = {
   status: string;
   bot_username: string | null;
   bind_code: string | null;
+  webhook_secret: string | null;
   created_at: string;
 };
 
@@ -22,12 +23,18 @@ const Settings = () => {
   const [token, setToken] = useState('');
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
   const { toast } = useToast();
+
+  const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? 'https://cuvhhjkhebfpnrixmxxq.supabase.co';
+  const ingestUrl = botChat?.webhook_secret
+    ? `${supabaseUrl}/functions/v1/sms-ingest`
+    : null;
 
   const loadBotChat = useCallback(async () => {
     const { data, error } = await supabase
       .from('bot_chats')
-      .select('id, status, bot_username, bind_code, created_at')
+      .select('id, status, bot_username, bind_code, webhook_secret, created_at')
       .eq('provider', 'telegram')
       .neq('status', 'disabled')
       .maybeSingle();
@@ -89,6 +96,21 @@ const Settings = () => {
       setDisconnecting(false);
     }
   };
+
+  const handleCopy = async (field: string, value: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedField(field);
+      toast({ title: `${label} copied` });
+      setTimeout(() => setCopiedField((f) => (f === field ? null : f)), 1800);
+    } catch {
+      toast({ title: 'Copy failed', description: 'Please copy manually', variant: 'destructive' });
+    }
+  };
+
+  const samplePayload = botChat?.webhook_secret
+    ? JSON.stringify({ secret: botChat.webhook_secret, sender: 'HDFCBK', text: 'Rs.150 debited...' }, null, 2)
+    : null;
 
   const deepLink =
     botChat?.bot_username && botChat.bind_code
@@ -205,13 +227,74 @@ const Settings = () => {
               </p>
             </div>
             <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
-              <li>On Android, choose a trusted SMS-forwarding or automation app that explicitly supports sending message text to a Telegram bot or chat; support varies by tool.</li>
-              <li>Forward only transaction alerts from your bank sender IDs (for example, HDFCBK or SBIINB), preserving the amount, date and sender when possible. If the sender is omitted, prefix forwarded text with <span className="font-mono text-foreground">SMS:</span>.</li>
-              <li>Matched debit and credit alerts appear in <span className="font-medium text-foreground">Approvals</span>. Check the amount, date and suggested category, then approve, edit or dismiss.</li>
+              <li>
+                <span className="font-medium text-foreground">Automatic (recommended on Android):</span> install a free SMS→HTTP forwarder such as <span className="font-medium">SMS Telebot</span> (GitHub), <span className="font-medium">MacroDroid</span> (Play Store, free tier) or <span className="font-medium">Incoming SMS to URL Forwarder</span> (F-Droid). Point it at the webhook URL below, include your secret, and filter bank sender IDs (e.g. HDFCBK, SBIINB, ICICIB, AXISBK, KMBANK, PYTM). Body filter: <span className="font-mono text-foreground">debited, credited</span>; exclude anything containing <span className="font-mono text-foreground">OTP</span>.
+              </li>
+              <li>
+                <span className="font-medium text-foreground">Manual (any phone, zero install):</span> long-press the bank SMS in your messaging app → Share/Forward → your Telegram bot. If the sender is lost, prefix the text with <span className="font-mono text-foreground">SMS:</span>.
+              </li>
+              <li>Matched debit and credit alerts appear in <span className="font-medium text-foreground">Approvals</span>. Check amount, date and suggested category, then approve, edit or dismiss. Nothing hits your ledger until you tap Approve.</li>
             </ol>
             <p className="text-xs text-muted-foreground">
-              Exclude OTPs, login codes and promotional messages in the forwarder. Identifiable OTP, failed and promotional alerts are ignored, but filtering them on your phone is safest. iPhone does not allow apps to read SMS in the background; use manual entry or statement import there.
+              Exclude OTPs, login codes and promotional messages in the forwarder. Identifiable OTP, failed and promotional alerts are also ignored server-side, but filtering them on your phone is safest. iPhone does not allow apps to read SMS in the background; use manual forwarding or statement import there.
             </p>
+
+            {botChat?.status === 'active' && ingestUrl && botChat.webhook_secret ? (
+              <div className="space-y-3 rounded-md border bg-muted/40 p-3">
+                <p className="text-xs font-semibold text-foreground">Auto-forward endpoint (Android HTTP forwarders)</p>
+                <div className="space-y-2">
+                  <div>
+                    <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">URL (POST)</label>
+                    <div className="mt-1 flex items-center gap-2">
+                      <code className="flex-1 truncate rounded-md bg-background px-2 py-1.5 font-mono text-xs">{ingestUrl}</code>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleCopy('url', ingestUrl, 'Endpoint URL')}
+                        aria-label="Copy endpoint URL"
+                      >
+                        {copiedField === 'url' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Secret (field name: <span className="font-mono">secret</span>)</label>
+                    <div className="mt-1 flex items-center gap-2">
+                      <code className="flex-1 truncate rounded-md bg-background px-2 py-1.5 font-mono text-xs">{botChat.webhook_secret}</code>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleCopy('secret', botChat.webhook_secret!, 'Webhook secret')}
+                        aria-label="Copy webhook secret"
+                      >
+                        {copiedField === 'secret' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">JSON body (example)</label>
+                    <div className="mt-1 flex items-start gap-2">
+                      <pre className="flex-1 overflow-x-auto rounded-md bg-background p-2 font-mono text-[11px] leading-relaxed">{samplePayload}</pre>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleCopy('payload', samplePayload!, 'Sample payload')}
+                        aria-label="Copy sample payload"
+                      >
+                        {copiedField === 'payload' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Also accepted: <span className="font-mono">sender</span>/<span className="font-mono">text</span> as form fields or query parameters. The secret authenticates you — keep it private; rotate it by disconnecting and reconnecting the bot.
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
             {botChat?.status === 'active' ? (
               <Button asChild variant="outline">
                 <Link to="/approvals">Review pending SMS</Link>

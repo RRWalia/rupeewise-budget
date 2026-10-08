@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 
-const SITE = 'https://rupeewise-budget.lovable.app';
+const SITE = typeof window !== 'undefined' ? window.location.origin : 'https://rupeewise-budget.netlify.app';
 
 const META: Record<string, { title: string; description: string }> = {
   '/': {

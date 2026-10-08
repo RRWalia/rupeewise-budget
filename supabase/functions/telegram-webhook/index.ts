@@ -1,23 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { isBankSmsLike, parseBankSmsTransaction } from "../_shared/sms-parser.ts";
+import { isBankSmsLike } from "../_shared/sms-parser.ts";
+import { enqueuePendingSms, categorizeWithAI } from "../_shared/sms-enqueue.ts";
 
 const TELEGRAM_API = "https://api.telegram.org";
-
-const expenseCategories = [
-  "Grocery",
-  "Housing",
-  "Loans & EMIs",
-  "Tuition & Education",
-  "Travel",
-  "Shopping",
-  "Entertainment",
-  "Medical",
-  "Personal",
-  "Health",
-];
-
-const incomeCategories = ["Salary", "Freelance", "Other"];
 
 const incomeKeywords = /\b(salary|received|got paid|paycheck|paycheque|freelance(?:\s+pay(?:ment)?)?|income|refund|cashback|credited|bonus|interest earned)\b/i;
 
@@ -42,10 +28,6 @@ type TelegramUpdate = {
   };
 };
 
-type AICompletionResponse = {
-  choices?: Array<{ message?: { content?: string } }>;
-};
-
 function okResponse() {
   return new Response(JSON.stringify({ ok: true }), {
     status: 200,
@@ -56,12 +38,6 @@ function okResponse() {
 // Today's date in IST (UTC+5:30), the app's target timezone.
 function todayIST(): string {
   return new Date(Date.now() + 5.5 * 3_600_000).toISOString().slice(0, 10);
-}
-
-async function smsFingerprint(userId: string, sender: string | null, message: string): Promise<string> {
-  const canonical = JSON.stringify([userId, sender ?? "", message]);
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 // Extract the amount (last number in the message) and the description around it.
@@ -81,55 +57,6 @@ function parseExpenseText(text: string): { amount: number; description: string }
     .trim();
 
   return { amount, description };
-}
-
-async function categorizeWithAI(
-  description: string,
-  type: "income" | "expense"
-): Promise<{ category: string; note: string; guessed: boolean }> {
-  const categories = type === "expense" ? expenseCategories : incomeCategories;
-  const fallback = type === "expense" ? "Personal" : "Other";
-
-  const apiKey = Deno.env.get("LOVABLE_API_KEY");
-  if (!apiKey || !description) {
-    return { category: fallback, note: description, guessed: true };
-  }
-
-  try {
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: "You are a helpful financial assistant. Always respond with valid JSON only, no markdown." },
-          {
-            role: "user",
-            content: `An Indian user logged this ${type} via chat: "${description}".
-Pick the single best category from: ${categories.join(", ")}.
-Respond with JSON only: {"category": "<one from the list>", "note": "<short clean note, max 40 chars>"}`,
-          },
-        ],
-      }),
-    });
-
-    if (!response.ok) throw new Error(`AI gateway error: ${response.status}`);
-
-    const data = await response.json() as AICompletionResponse;
-    const content = data.choices?.[0]?.message?.content ?? "";
-    const match = content.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error("No JSON in AI response");
-
-    const parsed = JSON.parse(match[0]) as { category?: unknown; note?: unknown };
-    const category = typeof parsed.category === "string" && categories.includes(parsed.category)
-      ? parsed.category
-      : fallback;
-    const note = typeof parsed.note === "string" && parsed.note.trim() ? parsed.note.trim().slice(0, 40) : description;
-
-    return { category, note, guessed: category === fallback };
-  } catch {
-    return { category: fallback, note: description, guessed: true };
-  }
 }
 
 serve(async (req) => {
@@ -219,71 +146,39 @@ serve(async (req) => {
     }
 
     if (isBankSmsLike(text)) {
-      const parsedSms = parseBankSmsTransaction(text);
-      if (!parsedSms) {
-        await send("I recognized a forwarded bank SMS, but it does not look like a completed transaction. Nothing was added.");
-        return okResponse();
-      }
-
-      const sourceFingerprint = await smsFingerprint(bot.user_id, parsedSms.sender, parsedSms.fingerprintText);
-      const { data: alreadySeen } = await supabaseAdmin
-        .from("pending_transactions")
-        .select("status")
-        .eq("user_id", bot.user_id)
-        .eq("source_fingerprint", sourceFingerprint)
-        .maybeSingle();
-      if (alreadySeen) {
-        await send(alreadySeen.status === "pending"
-          ? "This SMS is already waiting for your review in RupeeWise → Approvals. Nothing has been added yet."
-          : "This SMS has already been reviewed, so it was not added again.");
-        return okResponse();
-      }
-
-      const { category, note, guessed } = await categorizeWithAI(parsedSms.merchant, parsedSms.type);
-      const { error: pendingError } = await supabaseAdmin.from("pending_transactions").insert({
-        user_id: bot.user_id,
-        bot_chat_id: bot.id,
-        telegram_message_id: message.message_id ?? null,
-        source_fingerprint: sourceFingerprint,
-        source_sender: parsedSms.sender,
-        amount: parsedSms.amount,
-        type: parsedSms.type,
-        category,
-        category_guessed: guessed,
-        payment_mode: parsedSms.paymentMode,
-        date: parsedSms.date,
-        note: note || parsedSms.merchant,
-      });
-
-      if (pendingError?.code === "23505") {
-        const { data: duplicate } = await supabaseAdmin
-          .from("pending_transactions")
-          .select("status")
-          .eq("user_id", bot.user_id)
-          .eq("source_fingerprint", sourceFingerprint)
-          .maybeSingle();
-        const messageText = duplicate?.status === "pending"
-          ? "This SMS is already waiting for your review in RupeeWise → Approvals. Nothing has been added yet."
-          : duplicate
-            ? "This SMS has already been reviewed, so it was not added again."
-            : "This SMS was already received. Check RupeeWise → Approvals; no duplicate was added.";
-        await send(messageText);
-        return okResponse();
-      }
-
-      if (pendingError) {
-        console.error("telegram-webhook pending SMS insert error:", pendingError);
-        await send("I couldn't save this SMS for review. Nothing was added; please forward it again or add it in the app.");
-        return okResponse();
-      }
-
-      const label = note || parsedSms.merchant;
-      await send(
-        `🔎 SMS found: ${parsedSms.type === "income" ? "income" : "expense"} — ${label}, ₹${parsedSms.amount.toLocaleString("en-IN")} · suggested ${category}` +
-          (guessed ? " (best guess)" : "") +
-          "\nNot added yet. Review, edit, approve or dismiss it in RupeeWise → Approvals."
+      const result = await enqueuePendingSms(
+        supabaseAdmin,
+        { id: bot.id, user_id: bot.user_id },
+        text,
+        { telegramMessageId: message.message_id ?? null },
       );
-      return okResponse();
+
+      switch (result.kind) {
+        case "not_transaction":
+          await send("I recognized a forwarded bank SMS, but it does not look like a completed transaction. Nothing was added.");
+          return okResponse();
+        case "not_sms_like":
+          // Fall through to normal chat parsing (shouldn't happen here because of isBankSmsLike guard).
+          break;
+        case "already_pending":
+          await send("This SMS is already waiting for your review in RupeeWise → Approvals. Nothing has been added yet.");
+          return okResponse();
+        case "already_reviewed":
+          await send("This SMS has already been reviewed, so it was not added again.");
+          return okResponse();
+        case "insert_failed":
+          await send("I couldn't save this SMS for review. Nothing was added; please forward it again or add it in the app.");
+          return okResponse();
+        case "enqueued": {
+          const label = result.note || result.parsed.merchant;
+          await send(
+            `🔎 SMS found: ${result.parsed.type === "income" ? "income" : "expense"} — ${label}, ₹${result.parsed.amount.toLocaleString("en-IN")} · suggested ${result.category}` +
+              (result.guessed ? " (best guess)" : "") +
+              "\nNot added yet. Review, edit, approve or dismiss it in RupeeWise → Approvals."
+          );
+          return okResponse();
+        }
+      }
     }
 
     if (command.startsWith("/")) {

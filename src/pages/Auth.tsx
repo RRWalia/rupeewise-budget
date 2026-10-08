@@ -479,11 +479,8 @@ const Auth = () => {
               </div>
             </div>
 
-            {/* Google Sign In — only offered where OAuth can complete (Lovable-hosted surfaces).
-                Self-hosted copies get an honest note instead of a button that would bounce
-                cross-domain mid-login. Email/password above works everywhere. */}
-            {onOfficialHost ? (
-              <Button type="button" variant="outline" className="w-full" size="lg" onClick={handleGoogleSignIn} disabled={loading || googleLoading}>
+            {/* Google Sign In — works everywhere via direct Supabase OAuth redirect. */}
+            <Button type="button" variant="outline" className="w-full" size="lg" onClick={handleGoogleSignIn} disabled={loading || googleLoading}>
                 {googleLoading ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
@@ -496,21 +493,6 @@ const Auth = () => {
                 )}
                 Continue with Google
               </Button>
-            ) : (
-              <div className="rounded-md border border-dashed px-3 py-3 text-center space-y-1">
-                <p className="text-xs text-muted-foreground">
-                  Google sign-in is available on the official app — email sign-in works here.
-                </p>
-                <a
-                  href={OFFICIAL_ORIGIN}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-sm text-primary hover:underline font-medium"
-                >
-                  Open rupeewise-budget.lovable.app
-                </a>
-              </div>
-            )}
 
             {/* Toggle login/signup */}
             <div className="mt-4 text-center text-sm">

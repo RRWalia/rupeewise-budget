@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isBankSmsLike, parseBankSmsTransaction } from '../../supabase/functions/_shared/sms-parser.ts';
+import { isBankSmsLike, parseBankSmsTransaction, composeForwardedSmsText } from '../../supabase/functions/_shared/sms-parser.ts';
 
 describe('bank SMS parser', () => {
   const now = new Date('2026-10-07T08:00:00.000Z');
@@ -100,5 +100,41 @@ describe('bank SMS parser', () => {
     expect(parseBankSmsTransaction('HDFCBK: Rs 500 debited and credited to A/c on 06/10/2026', now)).toBeNull();
     expect(parseBankSmsTransaction('HDFCBK: Rs 0 debited from A/c on 06/10/2026', now)).toBeNull();
     expect(parseBankSmsTransaction('HDFCBK: Rs 100000001 debited from A/c on 06/10/2026', now)).toBeNull();
+  });
+});
+
+describe('composeForwardedSmsText (HTTP ingest)', () => {
+  const now = new Date('2026-10-07T08:00:00.000Z');
+
+  it('prefixes the cleaned sender ID', () => {
+    expect(composeForwardedSmsText('HDFCBK', 'Rs.150 debited from A/c XX1234 on 06/10/2026 at SWIGGY via UPI.'))
+      .toBe('HDFCBK: Rs.150 debited from A/c XX1234 on 06/10/2026 at SWIGGY via UPI.');
+  });
+
+  it('strips weird characters from the sender and caps length', () => {
+    expect(composeForwardedSmsText('  VM-HDFCBK  ', 'Rs 100 debited'))
+      .toBe('VM-HDFCBK: Rs 100 debited');
+    expect(composeForwardedSmsText('A'.repeat(40), 'x')).toMatch(/^A{20}: x$/);
+  });
+
+  it('adds an explicit [sms] marker when no sender is supplied so bare messages still parse as SMS', () => {
+    expect(composeForwardedSmsText(null, 'Rs 100 debited from A/c')).toBe('[sms] Rs 100 debited from A/c');
+    expect(composeForwardedSmsText(undefined, '  ')).toBe('[sms]');
+    expect(composeForwardedSmsText('', 'Rs 200 credited')).toBe('[sms] Rs 200 credited');
+  });
+
+  it('normalises internal whitespace', () => {
+    expect(composeForwardedSmsText('SBIINB', 'Rs.250   debited   from  A/c  XX9999'))
+      .toBe('SBIINB: Rs.250 debited from A/c XX9999');
+  });
+
+  it('round-trips through parseBankSmsTransaction for typical forwarder payloads', () => {
+    const composed = composeForwardedSmsText('HDFCBK', 'Rs. 1,250.00 debited from A/c XX1234 on 06/10/2026 at SWIGGY via UPI. Avl Bal Rs. 8,000.00');
+    expect(parseBankSmsTransaction(composed, now)).toMatchObject({
+      amount: 1250,
+      type: 'expense',
+      merchant: 'SWIGGY',
+      sender: 'HDFCBK',
+    });
   });
 });

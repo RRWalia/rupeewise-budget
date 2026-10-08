@@ -201,3 +201,17 @@ function validDate(year: number, month: number, day: number): string | null {
   if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
+
+/** Compose a forwarder payload (sender + raw body) into a canonical SMS text
+ *  our parser understands. Used by the sms-ingest edge function. Pure — no
+ *  Deno/network dependencies so it can be unit tested from Node/Vitest. */
+export function composeForwardedSmsText(sender: string | null | undefined, text: string): string {
+  const trimmed = (text ?? "").replace(/\s+/g, " ").trim();
+  const cleanSender = (sender ?? "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 20);
+  if (cleanSender) {
+    return trimmed ? `${cleanSender}: ${trimmed}` : cleanSender;
+  }
+  // Prefix so the parser still treats a bare message as an explicit forwarded SMS
+  // even when the forwarder omits the sender ID.
+  return trimmed ? `[sms] ${trimmed}` : "[sms]";
+}
