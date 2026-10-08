@@ -1,12 +1,35 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Bot, Loader2, MessageSquare, CheckCircle2, XCircle, ExternalLink, Trash2, Smartphone, ShieldCheck, Copy } from 'lucide-react';
+import { Bot, Loader2, MessageSquare, CheckCircle2, XCircle, ExternalLink, Trash2, Smartphone, ShieldCheck, Copy, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useSharedTransactions } from '@/contexts/TransactionsContext';
+
+/** navigator.clipboard fails silently in some older Android WebViews — fall back to execCommand. */
+async function copyText(value: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(value);
+    return true;
+  } catch {
+    try {
+      const textarea = document.createElement('textarea');
+      textarea.value = value;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(textarea);
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+}
 
 type BotChat = {
   id: string;

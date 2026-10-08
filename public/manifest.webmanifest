@@ -1,0 +1,31 @@
+{
+  "name": "RupeeWise – Smart Indian Money Tracker",
+  "short_name": "RupeeWise",
+  "description": "Track UPI, cards, wallets and cash in one INR-first view with AI-powered savings insights.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#24A754",
+  "background_color": "#F7FAF8",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

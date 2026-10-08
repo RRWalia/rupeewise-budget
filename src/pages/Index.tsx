@@ -143,24 +143,44 @@ const Index = () => {
           />
         </div>
 
-        {/* Main Content Grid */}
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Left Column */}
-          <div className="space-y-6">
-            <SpendingPieChart transactions={currentMonthTransactions} />
-            <RecentTransactions
-              transactions={currentMonthTransactions}
-              loading={loading}
-              onTransactionClick={(t) => setEditingTransaction(t)}
-            />
-          </div>
+        {/* First-run empty state: guide brand-new users instead of showing empty charts */}
+        {!loading && transactions.length === 0 ? (
+          <Card className="border-dashed">
+            <CardContent className="flex flex-col items-center px-6 py-14 text-center">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <Sparkles className="h-6 w-6" />
+              </div>
+              <h3 className="font-display text-lg font-semibold text-foreground">Start with your first transaction</h3>
+              <p className="mt-2 max-w-md text-sm text-muted-foreground">
+                Tap the <span className="font-medium text-foreground">+</span> button to log an income or expense.
+                Your charts, savings trend and AI tips will appear here as soon as you do.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          /* Main Content Grid */
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Left Column */}
+            <div className="space-y-6">
+              <Suspense fallback={<ChartLoader />}>
+                <SpendingPieChart transactions={currentMonthTransactions} />
+              </Suspense>
+              <RecentTransactions
+                transactions={currentMonthTransactions}
+                loading={loading}
+                onTransactionClick={(t) => setEditingTransaction(t)}
+              />
+            </div>
 
-          {/* Right Column */}
-          <div className="space-y-6">
-            <SavingsTrendCard transactions={transactions} monthKey={currentMonthKey} />
-            <AIInsightsCard transactions={currentMonthTransactions} monthKey={currentMonthKey} />
+            {/* Right Column */}
+            <div className="space-y-6">
+              <Suspense fallback={<ChartLoader />}>
+                <SavingsTrendCard transactions={transactions} monthKey={currentMonthKey} />
+              </Suspense>
+              <AIInsightsCard transactions={currentMonthTransactions} monthKey={currentMonthKey} />
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {editingTransaction && (
