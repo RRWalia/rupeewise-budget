@@ -1,6 +1,8 @@
 import { ReactNode } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import Auth from '@/pages/Auth';
+import Landing from '@/pages/Landing';
 import { Loader2 } from 'lucide-react';
 
 interface AuthGuardProps {
@@ -8,6 +10,7 @@ interface AuthGuardProps {
 }
 
 export function AuthGuard({ children }: AuthGuardProps) {
+  const location = useLocation();
   const { isAuthenticated, loading } = useAuth();
 
   if (loading) {
@@ -19,6 +22,10 @@ export function AuthGuard({ children }: AuthGuardProps) {
   }
 
   if (!isAuthenticated) {
+    const isPasswordRecovery = location.hash.includes('type=recovery') ||
+      location.search.includes('type=recovery');
+
+    if (location.pathname === '/' && !isPasswordRecovery) return <Landing />;
     return <Auth />;
   }
 

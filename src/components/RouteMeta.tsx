@@ -1,12 +1,12 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 
-const SITE = typeof window !== 'undefined' ? window.location.origin : 'https://rupeewise-budget.netlify.app';
+const SITE = 'https://rupeewise-budget.lovable.app';
 
 const META: Record<string, { title: string; description: string }> = {
   '/': {
-    title: 'RupeeWise – Smart Indian Money Tracker',
-    description: 'Track UPI, cards, wallets and cash in one simple INR-first view. AI-powered insights help you save more every month.',
+    title: 'RupeeWise | Expense Tracker & Budget Planner for India',
+    description: 'Track income and expenses in Indian rupees, plan monthly budgets and review category trends with RupeeWise, a personal finance app for India.',
   },
   '/budget': {
     title: 'Budget Planning — RupeeWise',
@@ -48,6 +48,7 @@ export function RouteMeta() {
     const url = `${SITE}${pathname}`;
     document.title = meta.title;
     setMeta('name', 'description', meta.description);
+    setMeta('name', 'robots', pathname === '/' ? 'index, follow' : 'noindex, follow');
     setMeta('property', 'og:title', meta.title);
     setMeta('property', 'og:description', meta.description);
     setMeta('property', 'og:url', url);
