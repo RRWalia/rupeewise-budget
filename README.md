@@ -41,9 +41,24 @@ npm run check      # lint + typecheck + test + build
 VITE_SUPABASE_PROJECT_ID="your-supabase-project-id"
 VITE_SUPABASE_PUBLISHABLE_KEY="your-supabase-anon-key"
 VITE_SUPABASE_URL="https://your-project-id.supabase.co"
+# Optional: Google Search Console HTML-tag content value
+VITE_GOOGLE_SITE_VERIFICATION=""
 ```
 
 Supabase Edge Functions also require server-side secrets such as `LOVABLE_API_KEY`. Configure those in Supabase, not in frontend `.env` files.
+
+## Google Search Console
+
+The production site and SEO canonical URLs use `https://rupeewise-budget.lovable.app/`. To verify it with Google Search Console:
+
+1. Add a **URL-prefix** property for `https://rupeewise-budget.lovable.app/` in Search Console.
+2. For the recommended **HTML file** method, the downloaded verification file is `google77280abb8794a6d3.html`. It is in `public/`, so Vite serves it from the site root after deployment at `https://rupeewise-budget.lovable.app/google77280abb8794a6d3.html`. Keep the filename and contents unchanged.
+3. Deploy the site, then click **Verify** in Search Console. Keep the file deployed so ownership remains verified.
+4. Submit `https://rupeewise-budget.lovable.app/sitemap.xml` in the property's **Sitemaps** section.
+
+Alternatively, choose **HTML tag** verification and set the tag's `content` value as `VITE_GOOGLE_SITE_VERIFICATION` in the production build environment; Vite injects that meta tag into the initial HTML response at build time. DNS TXT verification is also available if you prefer Google's DNS method.
+
+The public homepage provides crawlable product information; the authenticated app, sign-in and password-reset routes are marked `noindex` and are not listed in the sitemap. Search Console reports how Google crawls the site, but indexing and ranking take time and are not guaranteed.
 
 ## Supabase notes
 
