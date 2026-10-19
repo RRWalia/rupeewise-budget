@@ -340,21 +340,27 @@ const Settings = () => {
             </p>
             {botChat?.status === 'active' && botChat.webhook_secret ? (
               <div className="space-y-3 rounded-md border px-3 py-3">
-                <p className="text-sm font-medium">Auto-forward from Android (optional)</p>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  In an SMS-forwarding app such as <span className="font-medium text-foreground">SMS Telebot</span> or <span className="font-medium text-foreground">MacroDroid</span>, create a rule: trigger <span className="font-medium text-foreground">SMS received</span> from your bank sender IDs (e.g. HDFCBK, SBIINB) containing “debited” or “credited” (exclude “OTP”), and set the action to an <span className="font-medium text-foreground">HTTP POST</span> to this URL with the SMS text in a <span className="font-mono">text</span> field:
-                </p>
+                <p className="text-sm font-medium">Auto-forward from Android — one-time, 2-minute setup</p>
+                <ol className="list-decimal space-y-2 pl-5 text-xs text-muted-foreground leading-relaxed">
+                  <li>Install the free <span className="font-medium text-foreground">MacroDroid</span> app from the Play Store (SMS Telebot works too).</li>
+                  <li>Copy your private link below, then in MacroDroid add a macro: trigger <span className="font-medium text-foreground">SMS received</span> from your bank sender IDs (e.g. HDFCBK, SBIINB) containing “debited” or “credited” (exclude “OTP”); action <span className="font-medium text-foreground">HTTP POST</span> to the copied link with the SMS text in a <span className="font-mono">text</span> field.</li>
+                  <li>Tap <span className="font-medium text-foreground">Send test alert</span> — a sample debit appears in Approvals within seconds. From then on, real bank alerts arrive the same way and only need your approval.</li>
+                </ol>
                 <div className="flex items-center gap-2">
                   <code className="flex-1 truncate rounded bg-muted px-2 py-1.5 text-[11px] text-muted-foreground">
                     {SUPABASE_URL}/functions/v1/sms-ingest?s=•••{botChat.webhook_secret.slice(-4)}
                   </code>
                   <Button variant="outline" size="sm" onClick={handleCopyIngestUrl} className="shrink-0">
                     <Copy className="mr-2 h-3.5 w-3.5" />
-                    Copy URL
+                    Copy link
                   </Button>
                 </div>
+                <Button variant="secondary" size="sm" onClick={handleSendTestAlert} disabled={sendingTest}>
+                  {sendingTest ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <MessageSquare className="mr-2 h-3.5 w-3.5" />}
+                  Send test alert
+                </Button>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  The URL contains your private ingest key — anyone with it can submit SMS for your review, so keep it to yourself. Matched alerts appear in <span className="font-medium text-foreground">Approvals</span> exactly like forwarded Telegram messages.
+                  The link contains your private ingest key — anyone with it can submit SMS for your review, so keep it to yourself. Matched alerts appear in <span className="font-medium text-foreground">Approvals</span> exactly like forwarded Telegram messages.
                 </p>
               </div>
             ) : null}
