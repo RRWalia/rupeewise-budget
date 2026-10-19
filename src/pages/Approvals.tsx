@@ -191,7 +191,7 @@ const Approvals = () => {
                 Forwarded bank debits and credits will appear here with a suggested category. Nothing is added unless you approve it.
               </p>
               <Button asChild variant="outline" className="mt-5">
-                <Link to="/settings">Set up SMS forwarding</Link>
+                <Link to="/settings#sms-forwarding">Set up SMS forwarding</Link>
               </Button>
             </CardContent>
           </Card>

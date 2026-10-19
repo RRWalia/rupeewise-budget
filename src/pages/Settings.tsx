@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Bot, Loader2, MessageSquare, CheckCircle2, XCircle, ExternalLink, Trash2, Smartphone, ShieldCheck, Copy, Download } from 'lucide-react';
@@ -56,6 +56,14 @@ const Settings = () => {
   const [disconnecting, setDisconnecting] = useState(false);
   const [exporting, setExporting] = useState(false);
   const { toast } = useToast();
+  const smsSectionRef = useRef<HTMLDivElement | null>(null);
+
+  // Deep-linked from Approvals ("Set up SMS forwarding") — scroll to the SMS section.
+  useEffect(() => {
+    if (window.location.hash === '#sms-forwarding') {
+      smsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [loading]);
 
   const loadBotChat = useCallback(async () => {
     const { data, error } = await supabase
@@ -282,7 +290,7 @@ const Settings = () => {
           </CardContent>
         </Card>
 
-        <Card className="mt-5">
+        <Card className="mt-5" id="sms-forwarding" ref={smsSectionRef}>
           <CardHeader className="space-y-1">
             <CardTitle className="flex items-center gap-2 text-xl font-display">
               <Smartphone className="h-5 w-5" />
