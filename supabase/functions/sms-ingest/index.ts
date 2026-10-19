@@ -66,8 +66,11 @@ function requestMeta(req: Request): { ip: string | null; user_agent: string | nu
 // the response is returned, so fire-and-forget inserts never landed in
 // sms_ingest_logs. A logging failure must never break the ingest request,
 // hence the try/catch swallow.
+// deno-lint-ignore no-explicit-any
+type AdminClient = any;
+
 async function logAttempt(
-  supabaseAdmin: ReturnType<typeof createClient>,
+  supabaseAdmin: AdminClient,
   entry: IngestLogEntry
 ) {
   try {
@@ -114,7 +117,7 @@ serve(async (req) => {
   if (req.method !== "POST") return jsonResponse({ ok: false, error: "Method not allowed" }, 405);
 
   const meta = requestMeta(req);
-  let supabaseAdmin: ReturnType<typeof createClient> | null = null;
+  let supabaseAdmin: AdminClient | null = null;
 
   try {
     const secretParam = new URL(req.url).searchParams.get("s");
