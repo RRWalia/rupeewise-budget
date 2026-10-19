@@ -131,11 +131,34 @@ const Settings = () => {
     }
   };
 
+  const [sendingTest, setSendingTest] = useState(false);
+
+  const handleSendTestAlert = async () => {
+    if (!botChat?.webhook_secret) return;
+    setSendingTest(true);
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/sms-ingest?s=${botChat.webhook_secret}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sender: 'HDFCBK',
+          text: 'Rs 250.00 debited from A/c XX1234 on 19-10-26 at AMAZON PAY. Avl Bal Rs 12,340.50',
+        }),
+      });
+      if (!res.ok) throw new Error(`Status ${res.status}`);
+      toast({ title: 'Test alert sent', description: 'Open Approvals — a sample ₹250 debit should appear there within a few seconds.' });
+    } catch {
+      toast({ title: 'Test alert failed', description: 'Check your connection and try again.', variant: 'destructive' });
+    } finally {
+      setSendingTest(false);
+    }
+  };
+
   const handleCopyIngestUrl = async () => {
     if (!botChat?.webhook_secret) return;
     const url = `${SUPABASE_URL}/functions/v1/sms-ingest?s=${botChat.webhook_secret}`;
     try {
-      await navigator.clipboard.writeText(url);
+      if (!(await copyText(url))) throw new Error('copy failed');
       toast({ title: 'Ingest URL copied', description: 'Paste it into your SMS forwarder app as the webhook/URL destination.' });
     } catch {
       toast({ title: 'Copy failed', description: url, variant: 'destructive' });

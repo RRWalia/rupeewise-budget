@@ -191,7 +191,7 @@ export default function Landing() {
             </div>
             <h2 className="mt-3 font-display text-2xl font-bold">Bank alerts are optional and always reviewed by you</h2>
             <p className="mt-3 max-w-2xl leading-7 text-muted-foreground">
-              RupeeWise does not read your phone&apos;s SMS inbox. If you choose to forward selected bank alerts through a separate tool, each suggestion waits in Approvals until you review and approve it.
+              RupeeWise does not read your phone&apos;s SMS inbox. If you choose, a free Android app like MacroDroid can forward only your bank alerts to RupeeWise — a one-time, 2-minute setup. Every suggestion still waits in Approvals until you review and approve it.
             </p>
           </div>
           <MessageSquare className="hidden h-16 w-16 text-primary/30 md:block" aria-hidden="true" />
