@@ -23,4 +23,21 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": "off",
     },
   },
+  {
+    // Supabase Edge Functions run on the Deno runtime and are not bundled by
+    // Vite; the service-role admin client is legitimately loosely typed there.
+    files: ["supabase/functions/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
+  {
+    // Lovable regenerates this platform file on edits and its codegen declares
+    // `let timer` then assigns it once — prefer-const flags that on every sync.
+    // The rule stays enabled everywhere else.
+    files: ["src/integrations/supabase/previewAuthStorage.ts"],
+    rules: {
+      "prefer-const": "off",
+    },
+  },
 );
