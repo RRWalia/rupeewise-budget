@@ -282,7 +282,7 @@ const Settings = () => {
           </CardContent>
         </Card>
 
-        <Card className="mt-5">
+        <Card className="mt-5" id="sms-forwarding" ref={smsSectionRef}>
           <CardHeader className="space-y-1">
             <CardTitle className="flex items-center gap-2 text-xl font-display">
               <Smartphone className="h-5 w-5" />
