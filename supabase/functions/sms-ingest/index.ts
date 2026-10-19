@@ -66,7 +66,11 @@ function requestMeta(req: Request): { ip: string | null; user_agent: string | nu
 // the response is returned, so fire-and-forget inserts never landed in
 // sms_ingest_logs. A logging failure must never break the ingest request,
 // hence the try/catch swallow.
-type AdminClient = ReturnType<typeof createClient>;
+// Loose admin client type: the generated database types are not resolvable
+// in the edge-function typecheck, and ReturnType<typeof createClient> forces
+// every .from(...) row type to `never` (inserts then fail to typecheck).
+// deno-lint-ignore no-explicit-any
+type AdminClient = any;
 
 async function logAttempt(
   supabaseAdmin: AdminClient,
