@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.1"
   }
   public: {
     Tables: {
@@ -193,6 +193,50 @@ export type Database = {
             columns: ["transaction_id"]
             isOneToOne: false
             referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sms_ingest_logs: {
+        Row: {
+          amount: number | null
+          bot_chat_id: string | null
+          created_at: string
+          id: number
+          ip: string | null
+          outcome: string
+          secret_prefix: string | null
+          sender: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          amount?: number | null
+          bot_chat_id?: string | null
+          created_at?: string
+          id?: never
+          ip?: string | null
+          outcome: string
+          secret_prefix?: string | null
+          sender?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          amount?: number | null
+          bot_chat_id?: string | null
+          created_at?: string
+          id?: never
+          ip?: string | null
+          outcome?: string
+          secret_prefix?: string | null
+          sender?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_ingest_logs_bot_chat_id_fkey"
+            columns: ["bot_chat_id"]
+            isOneToOne: false
+            referencedRelation: "bot_chats"
             referencedColumns: ["id"]
           },
         ]
